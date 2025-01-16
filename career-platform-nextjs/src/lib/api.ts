@@ -12,11 +12,11 @@ import {
   ProgrammingProgress
 } from '@/types/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
+  withCredentials: false, // CORSエラーを回避するためfalseに設定
 });
 
 // サーバーサイドでの使用時のベースURL設定
