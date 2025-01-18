@@ -3,17 +3,166 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 17, 24, 39;
-  --background-end-rgb: 31, 41, 55;
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start-rgb)),
-    rgb(var(--background-end-rgb))
-  );
-  min-height: 100vh;
+  background: rgb(var(--background-start-rgb));
+}
+
+/* React Quill Editor Styles */
+.ql-editor {
+  min-height: 200px;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 1rem;
+  background-color: white;
+  color: #000;
+}
+
+.ql-editor p {
+  margin-bottom: 1rem;
+}
+
+.ql-editor h1,
+.ql-editor h2,
+.ql-editor h3 {
+  margin: 1.5rem 0 1rem;
+  font-weight: bold;
+}
+
+.ql-editor h1 {
+  font-size: 2rem;
+}
+
+.ql-editor h2 {
+  font-size: 1.5rem;
+}
+
+.ql-editor h3 {
+  font-size: 1.25rem;
+}
+
+.ql-editor ul,
+.ql-editor ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.ql-editor li {
+  margin-bottom: 0.5rem;
+}
+
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+}
+
+.ql-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.ql-editor table td,
+.ql-editor table th {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+}
+
+.ql-editor table th {
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+
+.ql-toolbar {
+  background-color: #f8f9fa;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+}
+
+.ql-container {
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  background-color: white;
+}
+
+.ql-snow .ql-picker {
+  color: #4a5568;
+}
+
+.ql-snow .ql-stroke {
+  stroke: #4a5568;
+}
+
+.ql-snow .ql-fill {
+  fill: #4a5568;
+}
+
+.ql-snow.ql-toolbar button:hover,
+.ql-snow .ql-toolbar button:hover {
+  color: #2b6cb0;
+}
+
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button:hover .ql-stroke {
+  stroke: #2b6cb0;
+}
+
+.ql-snow.ql-toolbar button:hover .ql-fill,
+.ql-snow .ql-toolbar button:hover .ql-fill {
+  fill: #2b6cb0;
+}
+
+.ql-snow .ql-picker-options {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ql-snow .ql-tooltip {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+}
+
+.ql-snow .ql-tooltip input[type=text] {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.ql-snow .ql-tooltip a.ql-action,
+.ql-snow .ql-tooltip a.ql-remove {
+  color: #2b6cb0;
+}
+
+.ql-snow .ql-tooltip a.ql-action:hover,
+.ql-snow .ql-tooltip a.ql-remove:hover {
+  text-decoration: underline;
+}
+
+/* Form input styles */
+input[type="text"],
+input[type="number"],
+textarea {
+  color: #000;
+  background-color: white;
+}
+
+/* Dialog styles */
+.dialog-content {
+  background-color: white;
+  color: #000;
 }

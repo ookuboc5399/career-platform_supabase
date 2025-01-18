@@ -1,4 +1,5 @@
 import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions, SASProtocol } from '@azure/storage-blob';
+import { v4 as uuidv4 } from 'uuid';
 
 // Azure Storage設定
 const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
@@ -22,9 +23,41 @@ const blobServiceClient = new BlobServiceClient(
 // コンテナ名の定義
 export const CONTAINERS = {
   CERTIFICATION_IMAGES: 'certification-images',
+  CERTIFICATION_DATA: 'certification-data',
   CERTIFICATION_VIDEOS: 'certification-videos',
   CERTIFICATION_THUMBNAILS: 'certification-thumbnails',
+  UNIVERSITY_DATA: 'university-data',
+  UNIVERSITY_IMAGES: 'university-images',
 } as const;
+
+// 初期化時にコンテナを作成
+async function initializeContainers() {
+  console.log('\n=== Initializing Containers ===');
+  for (const containerName of Object.values(CONTAINERS)) {
+    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const exists = await containerClient.exists();
+    if (!exists) {
+      console.log(`Creating container: ${containerName}`);
+      await containerClient.create();
+      console.log(`Container ${containerName} created successfully`);
+    } else {
+      console.log(`Container ${containerName} already exists`);
+    }
+  }
+}
+
+// 初期化を実行
+initializeContainers().catch(console.error);
+
+/**
+ * ファイル名を安全な形式に変換する
+ * @param filename オリジナルのファイル名
+ * @returns 安全なファイル名
+ */
+function getSafeFileName(filename: string): string {
+  const extension = filename.split('.').pop() || '';
+  return `${uuidv4()}.${extension}`;
+}
 
 /**
  * ファイルをAzure Storageにアップロードする
@@ -43,7 +76,7 @@ export async function uploadFile(
   try {
     console.log('\n=== File Upload Started ===');
     console.log('Container:', containerName);
-    console.log('Filename:', filename);
+    console.log('Original Filename:', filename);
     console.log('Content Type:', contentType);
     console.log('Buffer Size:', buffer.length);
 
@@ -58,22 +91,30 @@ export async function uploadFile(
       console.log('Container created successfully');
     }
 
-    const blobName = `${Date.now()}-${filename}`;
-    console.log('Generated blob name:', blobName);
+    const safeFileName = getSafeFileName(filename);
+    console.log('Safe filename:', safeFileName);
 
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const blockBlobClient = containerClient.getBlockBlobClient(safeFileName);
     console.log('Uploading blob...');
 
     await blockBlobClient.uploadData(buffer, {
       blobHTTPHeaders: { blobContentType: contentType }
     });
 
-    // SASトークンを生成して、一時的なアクセス可能なURLを作成
-    const sasToken = generateSasToken(containerName, blobName);
-    const url = `${blockBlobClient.url}?${sasToken}`;
+    // SASトークンを生成して、長期間有効なURLを作成
+    const startsOn = new Date();
+    const expiresOn = new Date(startsOn);
+    expiresOn.setFullYear(expiresOn.getFullYear() + 1); // 1年間有効
+
+    const sasUrl = await blockBlobClient.generateSasUrl({
+      permissions: BlobSASPermissions.parse("r"),
+      startsOn,
+      expiresOn,
+      protocol: SASProtocol.Https
+    });
     
-    console.log('Upload successful. URL:', url);
-    return url;
+    console.log('Upload successful. URL:', sasUrl);
+    return sasUrl;
 
   } catch (error) {
     console.error('\n=== Error in File Upload ===');
@@ -83,6 +124,83 @@ export async function uploadFile(
       console.error('Error stack:', error.stack);
     }
     throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * JSONデータをAzure Storageに保存する
+ * @param containerName コンテナ名
+ * @param filename ファイル名
+ * @param data JSONデータ
+ */
+export async function saveJsonData(
+  containerName: string,
+  filename: string,
+  data: any
+): Promise<void> {
+  try {
+    console.log('\n=== JSON Data Save Started ===');
+    console.log('Container:', containerName);
+    console.log('Filename:', filename);
+
+    const containerClient = blobServiceClient.getContainerClient(containerName);
+    
+    // コンテナが存在しない場合は作成
+    const containerExists = await containerClient.exists();
+    if (!containerExists) {
+      await containerClient.create();
+    }
+
+    const blockBlobClient = containerClient.getBlockBlobClient(filename);
+    const content = JSON.stringify(data, null, 2);
+    
+    await blockBlobClient.upload(content, content.length, {
+      blobHTTPHeaders: { blobContentType: 'application/json' }
+    });
+
+    console.log('JSON data saved successfully');
+
+  } catch (error) {
+    console.error('\n=== Error in JSON Data Save ===');
+    console.error('Error details:', error);
+    throw new Error(`Failed to save JSON data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * JSONデータをAzure Storageから読み込む
+ * @param containerName コンテナ名
+ * @param filename ファイル名
+ * @returns JSONデータ
+ */
+export async function loadJsonData(
+  containerName: string,
+  filename: string
+): Promise<any> {
+  try {
+    console.log('\n=== JSON Data Load Started ===');
+    console.log('Container:', containerName);
+    console.log('Filename:', filename);
+
+    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const blockBlobClient = containerClient.getBlockBlobClient(filename);
+
+    const exists = await blockBlobClient.exists();
+    if (!exists) {
+      console.log('File does not exist, returning empty array');
+      return [];
+    }
+
+    const downloadResponse = await blockBlobClient.download();
+    const content = await streamToString(downloadResponse.readableStreamBody!);
+    
+    console.log('JSON data loaded successfully');
+    return JSON.parse(content);
+
+  } catch (error) {
+    console.error('\n=== Error in JSON Data Load ===');
+    console.error('Error details:', error);
+    throw new Error(`Failed to load JSON data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -110,6 +228,24 @@ function generateSasToken(containerName: string, blobName: string): string {
     sasOptions,
     sharedKeyCredential
   ).toString();
+}
+
+/**
+ * ストリームを文字列に変換する
+ * @param readableStream 読み取り可能なストリーム
+ * @returns 文字列
+ */
+async function streamToString(readableStream: NodeJS.ReadableStream): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: any[] = [];
+    readableStream.on('data', (data) => {
+      chunks.push(data.toString());
+    });
+    readableStream.on('end', () => {
+      resolve(chunks.join(''));
+    });
+    readableStream.on('error', reject);
+  });
 }
 
 /**

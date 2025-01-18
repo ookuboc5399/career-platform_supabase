@@ -7,6 +7,8 @@ import programmingRouter from './routes/programming';
 import certificationsRouter from './routes/certifications';
 import uploadRouter from './routes/upload';
 import imagesRouter from './routes/images';
+import universitiesRouter from './routes/universities';
+import googleVisionRouter from './routes/google-vision';
 
 const app = express();
 
@@ -17,7 +19,8 @@ const corsOptions = {
     : 'http://localhost:3000',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
 app.use(cors(corsOptions));
@@ -26,6 +29,23 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// リクエストロギング
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Request Headers:', req.headers);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request Body:', req.body);
+  }
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} ${res.statusCode} ${duration}ms`);
+  });
+
+  next();
+});
+
 // ルーター
 app.use('/api/career', careerRouter);
 app.use('/api/english', englishRouter);
@@ -33,6 +53,8 @@ app.use('/api/programming', programmingRouter);
 app.use('/api/certifications', certificationsRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/universities', universitiesRouter);
+app.use('/api/google-vision', googleVisionRouter);
 
 // エラーハンドリング
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

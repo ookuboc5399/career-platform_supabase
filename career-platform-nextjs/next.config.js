@@ -1,20 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  async rewrites() {
-    return [
-      {
-        source: '/api/express/:path*',
-        destination: 'http://localhost:3000/:path*',
-      },
-    ]
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    config.module.rules.push({
+      test: /react-quill/,
+      use: [
+        {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          },
+        },
+      ],
+    });
+
+    return config;
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb',
-    },
-  },
-  serverExternalPackages: ['@prisma/client'],
+  transpilePackages: ['react-quill'],
 }
 
 module.exports = nextConfig

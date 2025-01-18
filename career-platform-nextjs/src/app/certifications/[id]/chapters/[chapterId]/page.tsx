@@ -1,237 +1,222 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import VideoPlayer from '@/components/ui/VideoPlayer';
-import { CertificationChapter, CertificationProgress, CertificationQuestion, Choice } from '@/types/api';
-import { getCertificationChapter, updateCertificationProgress } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 
-export default function ChapterPage({
-  params,
-}: {
-  params: { id: string; chapterId: string };
-}) {
+interface Question {
+  question: string;
+  options: string[];
+  correctAnswers: number[];
+}
+
+interface Chapter {
+  id: string;
+  title: string;
+  content: string;
+  order: number;
+  videoUrl: string;
+  questions: Question[];
+  webText: string;
+}
+
+enum ContentType {
+  Video = 'video',
+  WebText = 'webtext',
+  Questions = 'questions',
+}
+
+export default function ChapterPage({ params }: { params: Promise<{ id: string; chapterId: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
-  const [chapter, setChapter] = useState<CertificationChapter | null>(null);
-  const [progress, setProgress] = useState<CertificationProgress | null>(null);
-  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState<number>(-1);
-  const [selectedAnswer, setSelectedAnswer] = useState<number>(-1);
-  const [showExplanation, setShowExplanation] = useState(false);
+  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentContent, setCurrentContent] = useState<ContentType>(ContentType.Video);
+  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number[] }>({});
+  const [showResults, setShowResults] = useState(false);
+  const [nextChapterId, setNextChapterId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // チャプター情報を取得
-        const chapterData = await getCertificationChapter(params.chapterId);
-        setChapter(chapterData);
+    setMounted(true);
+    fetchChapter();
+  }, [resolvedParams.id, resolvedParams.chapterId]);
 
-        // 進捗情報を取得（ユーザーIDは仮で'user1'を使用）
-        const progressData = await updateCertificationProgress({
-          userId: 'user1',
-          certificationId: params.id,
-          completedQuestions: []
-        });
-        setProgress(progressData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load chapter content');
-      }
-    };
-
-    fetchData();
-  }, [params.id, params.chapterId]);
-
-  const handleVideoComplete = async () => {
+  const fetchChapter = async () => {
     try {
-      if (!progress) return;
-
-      const updatedProgress = await updateCertificationProgress({
-        userId: 'user1',
-        certificationId: params.id,
-        completedQuestions: progress.completedQuestions
-      });
-      setProgress(updatedProgress);
+      setIsLoading(true);
+      // TODO: APIからチャプター情報を取得
+      const mockData = {
+        id: '1',
+        title: '第1章: 基礎知識',
+        content: '基本的な概念と用語の解説',
+        order: 1,
+        videoUrl: '/uploads/videos/sample.mp4',
+        webText: '# 基礎知識\n\nここでは基本的な概念について学びます。',
+        questions: [
+          {
+            question: '次の記述のうち、正しいものを選んでください。',
+            options: [
+              '選択肢1',
+              '選択肢2',
+              '選択肢3',
+              '選択肢4',
+              '選択肢5',
+            ],
+            correctAnswers: [1, 3],
+          },
+        ],
+      };
+      setChapter(mockData);
+      // TODO: 次のチャプターIDを取得
+      setNextChapterId('2');
     } catch (error) {
-      console.error('Error updating progress:', error);
-      setError('Failed to update progress');
+      console.error('Failed to fetch chapter:', error);
+      setError('チャプター情報の取得に失敗しました');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAnswerSubmit = async () => {
-    if (!chapter || !progress || selectedQuestionIndex === -1 || selectedAnswer === -1) return;
+  const handleAnswerSelect = (questionIndex: number, optionIndex: number) => {
+    const currentAnswers = selectedAnswers[questionIndex] || [];
+    const newAnswers = currentAnswers.includes(optionIndex)
+      ? currentAnswers.filter(a => a !== optionIndex)
+      : [...currentAnswers, optionIndex];
+    setSelectedAnswers({ ...selectedAnswers, [questionIndex]: newAnswers });
+  };
 
-    const question = chapter.questions[selectedQuestionIndex];
-    const isCorrect = selectedAnswer === question.correctAnswer;
+  const checkAnswers = () => {
+    setShowResults(true);
+  };
 
-    if (isCorrect) {
-      try {
-        const updatedProgress = await updateCertificationProgress({
-          userId: 'user1',
-          certificationId: params.id,
-          completedQuestions: [...progress.completedQuestions, question.id]
-        });
-        setProgress(updatedProgress);
-      } catch (error) {
-        console.error('Error updating progress:', error);
-        setError('Failed to update progress');
-      }
+  const handleNext = () => {
+    if (currentContent === ContentType.Video) {
+      setCurrentContent(ContentType.WebText);
+    } else if (currentContent === ContentType.WebText) {
+      setCurrentContent(ContentType.Questions);
+    } else if (nextChapterId) {
+      router.push(`/certifications/${resolvedParams.id}/chapters/${nextChapterId}`);
     }
-
-    setShowExplanation(true);
   };
 
-  const handleNextQuestion = () => {
-    setSelectedAnswer(-1);
-    setShowExplanation(false);
-    setSelectedQuestionIndex(prev => 
-      prev < (chapter?.questions.length || 0) - 1 ? prev + 1 : -1
-    );
+  const handleBack = () => {
+    if (currentContent === ContentType.Questions) {
+      setCurrentContent(ContentType.WebText);
+    } else if (currentContent === ContentType.WebText) {
+      setCurrentContent(ContentType.Video);
+    }
   };
 
-  if (error) {
+  // マウント前はnullを返す
+  if (!mounted) return null;
+
+  if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
       </div>
     );
   }
 
-  if (!chapter || !progress) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-        </div>
-      </div>
-    );
-  }
+  if (!chapter) return null;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">{chapter.title}</h1>
-        <p className="text-gray-600 mb-8">{chapter.description}</p>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-2">{chapter.title}</h1>
+        <p className="text-gray-600">{chapter.content}</p>
+      </div>
 
-        {/* ビデオセクション */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">レッスン動画</h2>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            <VideoPlayer
-              url={chapter.videoUrl}
-              onComplete={handleVideoComplete}
-              completed={progress.videoCompleted}
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {currentContent === ContentType.Video && (
+          <div className="aspect-video relative">
+            <iframe
+              src={chapter.videoUrl}
+              className="absolute inset-0 w-full h-full"
+              allowFullScreen
             />
           </div>
-        </div>
+        )}
 
-        {/* コンテンツセクション */}
-        <div className="prose max-w-none mb-8">
-          <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
-        </div>
-
-        {/* 問題セクション */}
-        {selectedQuestionIndex === -1 ? (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">確認テスト</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {chapter.questions.map((question: CertificationQuestion, index: number) => (
-                <button
-                  key={question.id}
-                  onClick={() => setSelectedQuestionIndex(index)}
-                  className={`p-4 rounded-lg border ${
-                    progress.completedQuestions.includes(question.id)
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 hover:border-blue-500'
-                  }`}
-                >
-                  <h3 className="font-medium">問題 {index + 1}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{question.question}</p>
-                  {progress.completedQuestions.includes(question.id) && (
-                    <span className="inline-block px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full mt-2">
-                      完了
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">問題 {selectedQuestionIndex + 1}</h2>
-              <button
-                onClick={() => setSelectedQuestionIndex(-1)}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                問題一覧に戻る
-              </button>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border p-6 mb-4">
-              <p className="text-lg mb-6">{chapter.questions[selectedQuestionIndex].question}</p>
-
-              <div className="space-y-4">
-                {chapter.questions[selectedQuestionIndex].choices.map((choice: Choice, index: number) => (
-                  <button
-                    key={choice.id}
-                    onClick={() => !showExplanation && setSelectedAnswer(index)}
-                    disabled={showExplanation}
-                    className={`w-full text-left p-4 rounded-lg border ${
-                      selectedAnswer === index
-                        ? showExplanation
-                          ? index === chapter.questions[selectedQuestionIndex].correctAnswer
-                            ? 'border-green-500 bg-green-50'
-                            : 'border-red-500 bg-red-50'
-                          : 'border-blue-500 bg-blue-50'
-                        : showExplanation && index === chapter.questions[selectedQuestionIndex].correctAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-blue-500'
-                    }`}
-                  >
-                    {choice.text}
-                  </button>
-                ))}
-              </div>
-
-              {!showExplanation && selectedAnswer !== -1 && (
-                <button
-                  onClick={handleAnswerSubmit}
-                  className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  回答を確定
-                </button>
-              )}
-
-              {showExplanation && (
-                <div className="mt-6">
-                  <h3 className="font-semibold mb-2">解説</h3>
-                  <p className="text-gray-600">
-                    {chapter.questions[selectedQuestionIndex].explanation}
-                  </p>
-                  <button
-                    onClick={handleNextQuestion}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    次の問題へ
-                  </button>
-                </div>
-              )}
+        {currentContent === ContentType.WebText && (
+          <div className="p-6">
+            <div className="prose max-w-none">
+              {chapter.webText}
             </div>
           </div>
         )}
+
+        {currentContent === ContentType.Questions && (
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-6">練習問題</h2>
+            <div className="space-y-8">
+              {chapter.questions.map((question, questionIndex) => (
+                <div key={questionIndex} className="border rounded-lg p-4">
+                  <p className="font-medium mb-4">{question.question}</p>
+                  <div className="space-y-2">
+                    {question.options.map((option, optionIndex) => (
+                      <label
+                        key={optionIndex}
+                        className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                          selectedAnswers[questionIndex]?.includes(optionIndex)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200'
+                        } ${
+                          showResults
+                            ? question.correctAnswers.includes(optionIndex)
+                              ? 'border-green-500 bg-green-50'
+                              : selectedAnswers[questionIndex]?.includes(optionIndex)
+                              ? 'border-red-500 bg-red-50'
+                              : ''
+                            : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mr-3"
+                          checked={selectedAnswers[questionIndex]?.includes(optionIndex) || false}
+                          onChange={() => handleAnswerSelect(questionIndex, optionIndex)}
+                          disabled={showResults}
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!showResults && (
+              <div className="mt-6">
+                <Button
+                  onClick={checkAnswers}
+                  className="bg-blue-600 hover:bg-blue-700 w-full"
+                >
+                  解答する
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="p-6 border-t flex justify-between">
+          <Button
+            onClick={handleBack}
+            variant="outline"
+            disabled={currentContent === ContentType.Video}
+          >
+            戻る
+          </Button>
+          <Button
+            onClick={handleNext}
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={currentContent === ContentType.Questions && !showResults}
+          >
+            {currentContent === ContentType.Questions ? '次のチャプターへ' : '次へ'}
+          </Button>
+        </div>
       </div>
     </div>
   );

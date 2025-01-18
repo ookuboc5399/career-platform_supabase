@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 
-const inter = Inter({ subsets: ["latin"] });
+const notoSansJP = Noto_Sans_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 export const metadata: Metadata = {
-  title: "Career Platform",
-  description: "Learn and grow your career",
+  title: "キャリアプラットフォーム",
+  description: "あなたの成長とスキルアップを総合的にサポート",
 };
 
 export default function RootLayout({
@@ -16,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="ja">
+      <body className={`${notoSansJP.className} antialiased`}>
         <Navbar />
         {children}
       </body>

@@ -12,31 +12,50 @@ import {
   ProgrammingProgress
 } from '@/types/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
+const getBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    // Server-side
+    return process.env.EXPRESS_API_URL || 'http://localhost:4000';
+  }
+  // Client-side
+  return process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
+};
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: false, // CORSエラーを回避するためfalseに設定
-});
+const createApiInstance = () => {
+  return axios.create({
+    baseURL: getBaseUrl(),
+    withCredentials: false,
+  });
+};
 
-// サーバーサイドでの使用時のベースURL設定
-if (typeof window === 'undefined') {
-  api.defaults.baseURL = process.env.EXPRESS_API_URL || API_BASE_URL;
-}
+const api = createApiInstance();
 
 // ファイルアップロード関連
 export async function uploadFile(file: File, type: string): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('type', type);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
 
-  const response = await api.post('/api/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+    const response = await fetch(`${getBaseUrl()}/api/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Content-Typeヘッダーは自動的に設定されるため、明示的に設定しない
+      },
+    });
 
-  return response.data.url;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload file');
+    }
+
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
 }
 
 export async function generateSasToken(containerName: string, blobName: string): Promise<string> {
@@ -57,29 +76,69 @@ export async function deleteFile(containerName: string, url: string): Promise<vo
   });
 }
 
-// 大学情報関連
-export async function getUniversities(): Promise<University[]> {
-  const response = await api.get('/api/universities');
+// 資格学習関連
+export async function getCertifications(): Promise<Certification[]> {
+  const response = await api.get('/api/certifications');
   return response.data;
 }
 
-export async function getUniversity(id: string): Promise<University> {
-  const response = await api.get(`/api/universities/${id}`);
+export async function getCertification(id: string): Promise<Certification> {
+  const response = await api.get(`/api/certifications/${id}`);
   return response.data;
 }
 
-export async function createUniversity(data: Omit<University, 'id' | 'createdAt' | 'updatedAt'>): Promise<University> {
-  const response = await api.post('/api/universities', data);
+export async function createCertification(data: FormData): Promise<Certification> {
+  const response = await api.post('/api/certifications', data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 }
 
-export async function updateUniversity(id: string, data: Partial<University>): Promise<University> {
-  const response = await api.put(`/api/universities/${id}`, data);
+export async function updateCertification(id: string, data: Partial<Certification>): Promise<Certification> {
+  const response = await api.put(`/api/certifications/${id}`, data);
   return response.data;
 }
 
-export async function deleteUniversity(id: string): Promise<void> {
-  await api.delete(`/api/universities/${id}`);
+export async function deleteCertification(id: string): Promise<void> {
+  await api.delete(`/api/certifications/${id}`);
+}
+
+// チャプター関連
+export async function getChaptersByCertificationId(certificationId: string): Promise<CertificationChapter[]> {
+  const response = await api.get(`/api/certifications/${certificationId}/chapters`);
+  return response.data;
+}
+
+export async function createChapter(certificationId: string, data: Omit<CertificationChapter, 'id'>): Promise<CertificationChapter> {
+  console.log('Creating chapter with data:', { certificationId, data });
+  const response = await api.post(`/api/certifications/${certificationId}/chapters`, data);
+  console.log('Create chapter response:', response.data);
+  return response.data;
+}
+
+export async function updateChapter(certificationId: string, chapterId: string, data: Partial<CertificationChapter>): Promise<CertificationChapter> {
+  const response = await api.put(`/api/certifications/${certificationId}/chapters/${chapterId}`, data);
+  return response.data;
+}
+
+export async function deleteChapter(certificationId: string, chapterId: string): Promise<void> {
+  await api.delete(`/api/certifications/${certificationId}/chapters/${chapterId}`);
+}
+
+export async function getCertificationChapter(chapterId: string): Promise<CertificationChapter> {
+  const response = await api.get(`/api/certifications/chapters/${chapterId}`);
+  return response.data;
+}
+
+export async function updateCertificationProgress(data: {
+  userId: string;
+  certificationId: string;
+  completedQuestions: string[];
+}): Promise<CertificationProgress> {
+  const response = await api.post('/api/certifications/progress', data);
+  return response.data;
 }
 
 // プログラミング学習関連
@@ -127,49 +186,6 @@ export async function updateProgrammingProgress(userId: string, languageId: stri
     chapterId,
     ...data,
   });
-  return response.data;
-}
-
-// 資格学習関連
-export async function getCertifications(): Promise<Certification[]> {
-  const response = await api.get('/api/certifications');
-  return response.data;
-}
-
-export async function getCertification(id: string): Promise<Certification> {
-  const response = await api.get(`/api/certifications/${id}`);
-  return response.data;
-}
-
-export async function createCertification(data: FormData): Promise<Certification> {
-  const response = await api.post('/api/certifications', data, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data;
-}
-
-export async function updateCertification(id: string, data: Partial<Certification>): Promise<Certification> {
-  const response = await api.put(`/api/certifications/${id}`, data);
-  return response.data;
-}
-
-export async function deleteCertification(id: string): Promise<void> {
-  await api.delete(`/api/certifications/${id}`);
-}
-
-export async function getCertificationChapter(chapterId: string): Promise<CertificationChapter> {
-  const response = await api.get(`/api/certifications/chapters/${chapterId}`);
-  return response.data;
-}
-
-export async function updateCertificationProgress(data: {
-  userId: string;
-  certificationId: string;
-  completedQuestions: string[];
-}): Promise<CertificationProgress> {
-  const response = await api.post('/api/certifications/progress', data);
   return response.data;
 }
 
@@ -235,6 +251,26 @@ export async function updateEnglishProgress(userId: string, lessonId: string, da
     console.error('Failed to update English progress:', error);
     throw new Error('Failed to update English progress');
   }
+}
+
+// 大学情報関連
+export async function getUniversities(): Promise<any[]> {
+  const response = await api.get('/api/universities');
+  return response.data;
+}
+
+export async function scrapeUniversities(): Promise<{ message: string; added: number; total: number }> {
+  const response = await api.post('/api/universities/scrape');
+  return response.data;
+}
+
+export async function updateUniversity(id: string, data: any): Promise<any> {
+  const response = await api.put(`/api/universities/${id}`, data);
+  return response.data;
+}
+
+export async function deleteUniversity(id: string): Promise<void> {
+  await api.delete(`/api/universities/${id}`);
 }
 
 export default api;

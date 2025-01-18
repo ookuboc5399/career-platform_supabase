@@ -1,124 +1,126 @@
 'use client';
 
-import { getUniversity } from '@/lib/api';
-import { University } from '@/lib/cosmos-db';
-import { use } from 'react';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { getUniversities } from '@/lib/api';
 
-export default function UniversityPage({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
-  const resolvedParams = use(Promise.resolve(params));
+interface University {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  location: string;
+  website: string;
+}
+
+export default function UniversityDetailPage() {
+  const params = useParams();
+  const router = useRouter();
   const [university, setUniversity] = useState<University | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUniversity = async () => {
-      try {
-        const data = await getUniversity(resolvedParams.id);
-        setUniversity(data);
-      } catch (error) {
-        console.error('Failed to fetch university:', error);
-      } finally {
-        setLoading(false);
+    fetchUniversityDetails();
+  }, [params.id]);
+
+  const fetchUniversityDetails = async () => {
+    try {
+      setIsLoading(true);
+      const universities = await getUniversities();
+      const found = universities.find(u => u.id === params.id);
+      if (found) {
+        setUniversity(found);
+      } else {
+        setError('大学情報が見つかりませんでした');
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch university details:', error);
+      setError('大学情報の取得に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    fetchUniversity();
-  }, [resolvedParams.id]);
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-600">読み込み中...</div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
-  if (!university) {
+  if (error || !university) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">大学/プログラムが見つかりません</h3>
-              <div className="mt-2 text-sm text-red-700">
-                指定された大学/プログラムは存在しないか、削除された可能性があります。
-              </div>
-              <div className="mt-4">
-                <Link
-                  href="/career"
-                  className="text-sm font-medium text-red-700 hover:text-red-600"
-                >
-                  キャリア支援トップに戻る
-                </Link>
-              </div>
-            </div>
-          </div>
+        <div className="bg-red-50 border border-red-200 rounded p-4">
+          <p className="text-red-600">{error || '大学情報が見つかりませんでした'}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="relative h-96">
-        <Image
-          src={university.imageUrl}
-          alt={university.title}
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <div className="container mx-auto">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {university.type === 'university' ? '大学' : 'プログラム'}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {university.location === 'overseas' ? '海外' : '日本'}
-              </span>
-              {university.programType && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  {university.programType === 'mba' ? 'MBA' : 'データサイエンス'}
-                </span>
-              )}
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              {university.title}
-            </h1>
+    <div className="container mx-auto px-4 py-8">
+      <Button
+        onClick={() => router.back()}
+        className="mb-6 bg-gray-600 hover:bg-gray-700"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        戻る
+      </Button>
+
+      <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+        {university.imageUrl && (
+          <div className="aspect-[21/9] relative bg-gray-100">
+            <Image
+              src={university.imageUrl}
+              alt={university.name}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority
+            />
           </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">概要</h2>
-          <p className="text-gray-600 whitespace-pre-wrap">
-            {university.description}
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">公式サイト</h2>
-          <a
-            href={university.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 hover:underline"
-          >
-            {university.websiteUrl}
-          </a>
+        )}
+        <div className="p-8">
+          <h1 className="text-4xl font-bold mb-6 text-gray-800">{university.name}</h1>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-3 text-gray-700">概要</h2>
+                <p className="text-gray-600 leading-relaxed">{university.description}</p>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-3 text-gray-700">所在地</h2>
+                <p className="text-gray-600 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {university.location}
+                </p>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-3 text-gray-700">リンク</h2>
+              <a
+                href={university.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-blue-600 hover:underline"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                公式サイトで詳細を見る
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -45,7 +45,21 @@ export async function initializeDatabase() {
       }),
       db.containers.createIfNotExists({
         id: 'certification-chapters',
-        partitionKey: '/certificationId'
+        partitionKey: '/certificationId',
+        indexingPolicy: {
+          indexingMode: 'consistent',
+          automatic: true,
+          includedPaths: [
+            {
+              path: '/*'
+            }
+          ],
+          excludedPaths: [
+            {
+              path: '/"_etag"/?'
+            }
+          ]
+        }
       }),
       db.containers.createIfNotExists({
         id: 'certification-progress',
@@ -171,21 +185,23 @@ export interface CertificationChapter {
   certificationId: string;
   title: string;
   description: string;
+  content: string;
   videoUrl: string;
   thumbnailUrl: string;
   duration: string;
   order: number;
   questions: {
-    id: string;
-    text: string;
-    imageUrl?: string;
-    choices: {
-      id: string;
-      text: string;
-    }[];
-    correctChoiceId: string;
+    question: string;
+    options: string[];
+    correctAnswers: number[];
     explanation: string;
+    explanationImages: string[];
+    explanationTable?: {
+      headers: string[];
+      rows: string[][];
+    };
   }[];
+  webText: string;
   _rid?: string;
   _self?: string;
   _etag?: string;
@@ -336,10 +352,11 @@ export async function getCertificationChapters(certificationId: string) {
   if (!certificationChaptersContainer) await initializeDatabase();
   const { resources } = await certificationChaptersContainer.items
     .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId ORDER BY c.order',
+      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
       parameters: [{ name: '@certificationId', value: certificationId }]
     })
     .fetchAll();
+  console.log('Query result:', resources);
   return resources as CertificationChapter[];
 }
 
@@ -350,10 +367,32 @@ export async function getCertificationChapter(id: string) {
 }
 
 export async function createCertificationChapter(data: Omit<CertificationChapter, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) {
-  if (!certificationChaptersContainer) await initializeDatabase();
-  const id = Math.random().toString(36).substring(2, 15);
-  const { resource } = await certificationChaptersContainer.items.create({ ...data, id });
-  return resource as CertificationChapter;
+  try {
+    console.log('createCertificationChapter - Start');
+    if (!certificationChaptersContainer) {
+      console.log('Initializing database...');
+      await initializeDatabase();
+    }
+    const id = Math.random().toString(36).substring(2, 15);
+    console.log('Generated chapter ID:', id);
+    console.log('Creating chapter with data:', { ...data, id });
+    
+    const itemToCreate = { ...data, id };
+    console.log('Creating item with partition key:', itemToCreate.certificationId);
+    const { resource } = await certificationChaptersContainer.items.create(itemToCreate);
+    console.log('Created chapter resource:', JSON.stringify(resource, null, 2));
+    return resource as CertificationChapter;
+  } catch (error) {
+    console.error('Error in createCertificationChapter:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+    throw error;
+  }
 }
 
 // 進捗関連の操作関数

@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { BlobServiceClient, StorageSharedKeyCredential, BlobSASPermissions } from '@azure/storage-blob';
+import { BlobServiceClient, StorageSharedKeyCredential, BlobSASPermissions, SASProtocol } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
@@ -51,7 +51,7 @@ router.post('/', upload.single('file'), async (req: FileRequest, res: Response, 
     // ファイルの種類に基づいてコンテナを選択
     let containerName: string;
     switch (type) {
-      case 'university':
+      case 'university-images':
         containerName = CONTAINERS.UNIVERSITY_IMAGES;
         break;
       case 'programming-video':
@@ -70,11 +70,21 @@ router.post('/', upload.single('file'), async (req: FileRequest, res: Response, 
         containerName = CONTAINERS.CERTIFICATION_IMAGES;
         break;
       default:
-        res.status(400).json({ error: 'Invalid file type' });
+        console.error('Invalid file type:', type);
+        res.status(400).json({ error: `Invalid file type: ${type}` });
         return next();
     }
 
     const containerClient = blobServiceClient.getContainerClient(containerName);
+    
+    // コンテナが存在しない場合は作成
+    const exists = await containerClient.exists();
+    if (!exists) {
+      await containerClient.create({
+        access: 'blob' // Blobレベルのパブリックアクセスを許可
+      });
+    }
+    
     const blobName = `${Date.now()}-${uuidv4()}-${file.originalname}`;
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
@@ -82,7 +92,19 @@ router.post('/', upload.single('file'), async (req: FileRequest, res: Response, 
       blobHTTPHeaders: { blobContentType: file.mimetype }
     });
 
-    res.json({ url: blockBlobClient.url });
+    // SASトークンを生成して、一時的なアクセス可能なURLを作成
+    const startsOn = new Date();
+    const expiresOn = new Date(startsOn);
+    expiresOn.setFullYear(expiresOn.getFullYear() + 1); // 1年間有効
+
+    const sasUrl = await blockBlobClient.generateSasUrl({
+      permissions: BlobSASPermissions.parse("r"),
+      startsOn,
+      expiresOn,
+      protocol: SASProtocol.Https
+    });
+
+    res.json({ url: sasUrl });
     return next();
   } catch (error) {
     console.error('Error uploading file:', error);
