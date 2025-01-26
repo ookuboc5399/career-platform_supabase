@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UpdateCertificationDto, Certification } from '@/types/api';
-import { mockCertifications } from '../route';
+import { CosmosClient } from '@azure/cosmos';
+
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || ''
+});
+const database = client.database('career-platform');
+const container = database.container('certifications');
 
 export async function GET(
   request: NextRequest,
   context: { params: { id: string } }
 ) {
   try {
-    // 仮の実装（開発用）
     const resolvedParams = await Promise.resolve(context.params);
-    const certification = mockCertifications.find(c => c.id === resolvedParams.id);
+    const { resource: certification } = await container.item(resolvedParams.id, resolvedParams.id).read();
+    
     if (!certification) {
       return NextResponse.json(
         { error: 'Certification not found' },
@@ -18,18 +25,6 @@ export async function GET(
     }
 
     return NextResponse.json(certification);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const certification = await getCertification(params.id);
-    if (!certification) {
-      return NextResponse.json(
-        { error: 'Certification not found' },
-        { status: 404 }
-      );
-    }
-    return NextResponse.json(certification);
-    */
   } catch (error) {
     console.error('Error fetching certification:', error);
     return NextResponse.json(
@@ -44,11 +39,16 @@ export async function PUT(
   context: { params: { id: string } }
 ) {
   try {
+    console.log('PUT /api/certifications/[id] - Start');
+    console.log('Certification ID:', context.params.id);
     const body = await request.json();
-    const { name, description, imageUrl, category, difficulty, provider, estimatedStudyTime, price } = body as UpdateCertificationDto;
+    console.log('Request body:', body);
 
-    // 仮の実装（開発用）
-    const certification = mockCertifications.find(c => c.id === context.params.id);
+    const { name, description, category, difficulty, estimatedStudyTime } = body;
+    console.log('Parsed data:', { name, description, category, difficulty, estimatedStudyTime });
+
+    const { resource: certification } = await container.item(context.params.id, context.params.id).read();
+    console.log('Found certification:', certification);
     if (!certification) {
       return NextResponse.json(
         { error: 'Certification not found' },
@@ -56,37 +56,18 @@ export async function PUT(
       );
     }
 
-    const updatedCertification: Certification = {
+    const updatedCertification = {
       ...certification,
-      name: name || certification.name,
-      description: description || certification.description,
-      imageUrl: imageUrl || certification.imageUrl,
-      category: category || certification.category,
-      difficulty: difficulty || certification.difficulty,
-      provider: provider || certification.provider,
-      estimatedStudyTime: estimatedStudyTime || certification.estimatedStudyTime,
-      price: price || certification.price,
+      name,
+      description,
+      category,
+      difficulty,
+      estimatedStudyTime,
       updatedAt: new Date().toISOString(),
     };
 
-    const index = mockCertifications.findIndex(c => c.id === context.params.id);
-    mockCertifications[index] = updatedCertification;
-    return NextResponse.json(updatedCertification);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const updatedCertification = await updateCertification(params.id, {
-      name,
-      description,
-      imageUrl,
-      category,
-      difficulty,
-      provider,
-      estimatedStudyTime,
-      price,
-    });
-    return NextResponse.json(updatedCertification);
-    */
+    const { resource } = await container.item(context.params.id, context.params.id).replace(updatedCertification);
+    return NextResponse.json(resource);
   } catch (error) {
     console.error('Error updating certification:', error);
     return NextResponse.json(
@@ -101,8 +82,7 @@ export async function DELETE(
   context: { params: { id: string } }
 ) {
   try {
-    // 仮の実装（開発用）
-    const certification = mockCertifications.find(c => c.id === context.params.id);
+    const { resource: certification } = await container.item(context.params.id, context.params.id).read();
     if (!certification) {
       return NextResponse.json(
         { error: 'Certification not found' },
@@ -110,15 +90,8 @@ export async function DELETE(
       );
     }
 
-    const index = mockCertifications.findIndex(c => c.id === context.params.id);
-    mockCertifications.splice(index, 1);
+    await container.item(context.params.id, context.params.id).delete();
     return new NextResponse(null, { status: 204 });
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    await deleteCertification(params.id);
-    return new NextResponse(null, { status: 204 });
-    */
   } catch (error) {
     console.error('Error deleting certification:', error);
     return NextResponse.json(

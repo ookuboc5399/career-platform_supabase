@@ -37,20 +37,12 @@ export async function uploadFile(file: File, type: string): Promise<string> {
     formData.append('file', file);
     formData.append('type', type);
 
-    const response = await fetch(`${getBaseUrl()}/api/upload`, {
-      method: 'POST',
-      body: formData,
+    const response = await api.post('/api/upload', formData, {
       headers: {
-        // Content-Typeヘッダーは自動的に設定されるため、明示的に設定しない
+        'Content-Type': 'multipart/form-data',
       },
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to upload file');
-    }
-
-    const data = await response.json();
+    const data = response.data;
     return data.url;
   } catch (error) {
     console.error('Upload error:', error);

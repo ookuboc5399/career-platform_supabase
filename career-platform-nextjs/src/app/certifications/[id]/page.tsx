@@ -102,18 +102,14 @@ export default async function CertificationPage({ params }: Props) {
             </div>
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <span className={`px-2 py-1 rounded text-sm ${
-                  certification.category === 'finance'
-                    ? 'bg-green-100 text-green-800'
-                    : certification.category === 'it'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {certification.category === 'finance'
-                    ? '金融'
-                    : certification.category === 'it'
-                    ? 'IT'
-                    : 'ビジネス'}
+                <span className="px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
+                  {certification.mainCategory}
+                </span>
+                <span className="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
+                  {certification.category}
+                </span>
+                <span className="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">
+                  {certification.subCategory}
                 </span>
                 <span className={`px-2 py-1 rounded text-sm ${
                   certification.difficulty === 'beginner'
@@ -140,61 +136,94 @@ export default async function CertificationPage({ params }: Props) {
                 </div>
               </div>
 
-              <div className="mt-8 space-y-4">
-                {certification.questions && certification.questions.length > 0 && (
-                  <Link
-                    href={`/certifications/${certification.id}/questions`}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              <div className="mt-8 flex space-x-4">
+                <Link
+                  href={`/certifications/${certification.id}/questions`}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  総合問題を解く
+                  <svg
+                    className="w-4 h-4 ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    問題を解く
-                    <svg
-                      className="w-4 h-4 ml-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Link>
-                )}
-                {certification.chapters && certification.chapters.length > 0 && (
-                  <Link
-                    href={`/certifications/${certification.id}/chapters/1`}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
+                <Link
+                  href="#chapters"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  チャプター一覧へ
+                  <svg
+                    className="w-4 h-4 ml-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    学習を開始
-                    <svg
-                      className="w-4 h-4 ml-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </Link>
-                )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </Link>
               </div>
             </div>
           </div>
         </div>
+
+        {certification.chapters && certification.chapters.length > 0 && (
+          <div id="chapters" className="mt-12">
+            <h2 className="text-2xl font-bold mb-6">チャプター一覧</h2>
+            <div className="space-y-4">
+              {certification.chapters.map((chapter, index) => (
+                <Link
+                  key={chapter.id}
+                  href={`/certifications/${certification.id}/chapters/${chapter.id}`}
+                >
+                  <div className="bg-white rounded-lg shadow-sm border p-6 hover:border-blue-500 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">
+                          Chapter {index + 1}: {chapter.title}
+                        </h3>
+                        <p className="text-gray-600 mb-4">{chapter.description}</p>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {chapter.duration}
+                          </div>
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            {chapter.questions?.length || 0}問
+                          </div>
+                        </div>
+                      </div>
+                      <div className="inline-flex items-center text-blue-600">
+                        <span className="mr-2">学習する</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -50,11 +50,23 @@ export interface CertificationChapter extends BaseEntity {
   questions: CertificationQuestion[];
 }
 
+export type MainCategory = 
+  | '企業と法務'
+  | '経営戦略'
+  | 'システム戦略'
+  | '開発技術'
+  | 'プロジェクトマネジメント'
+  | 'サービスマネジメント'
+  | '基礎理論'
+  | 'コンピュータシステム';
+
 export interface Certification extends BaseEntity {
   name: string;
   description: string;
   imageUrl: string;
-  category: 'finance' | 'it' | 'business';
+  mainCategory?: MainCategory;
+  category: string;
+  subCategory?: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedStudyTime: string;
   questions?: CertificationQuestion[];
@@ -64,8 +76,10 @@ export interface Certification extends BaseEntity {
 export interface UpdateCertificationDto {
   name?: string;
   description?: string;
-  image?: File;
-  category?: 'finance' | 'it' | 'business';
+  imageUrl?: string;
+  mainCategory?: MainCategory;
+  category?: string;
+  subCategory?: string;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   estimatedStudyTime?: string;
   questions?: CertificationQuestion[];
@@ -76,7 +90,9 @@ export interface CreateCertificationDto {
   name: string;
   description: string;
   image?: File;
-  category: 'finance' | 'it' | 'business';
+  mainCategory?: MainCategory;
+  category: string;
+  subCategory?: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedStudyTime: string;
   questions?: CertificationQuestion[];

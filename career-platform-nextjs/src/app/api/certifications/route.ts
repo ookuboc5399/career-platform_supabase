@@ -1,47 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Certification } from '@/types/api';
+import type { Certification, MainCategory } from '@/types/api';
 import { uploadFile, CONTAINERS } from '@/lib/storage';
+import { CosmosClient } from '@azure/cosmos';
 
-// 仮のデータストア（開発用）
-export const mockCertifications: Certification[] = [
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || ''
+});
+const database = client.database('career-platform');
+const container = database.container('certifications');
+
+// 資格カテゴリー定義
+const categories = {
+  '企業と法務': ['企業活動', '法務'],
+  '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ'],
+  'システム戦略': ['システム戦略', 'システム企画'],
+  '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
+  'プロジェクトマネジメント': ['プロジェクトマネジメント'],
+  'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
+  '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
+  'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
+};
+
+// 開発用のサンプルデータ
+export const mockCertifications: (Certification & { type: string })[] = [
   {
     id: '1',
-    name: 'AWS Solutions Architect Associate',
-    description: 'AWSのソリューションアーキテクトアソシエイト試験の対策講座',
-    imageUrl: 'https://example.com/images/aws-saa.jpg',
+    type: 'certification',
+    name: '基本情報技術者試験',
+    description: 'IT業界の登竜門となる国家資格です。',
+    imageUrl: 'https://example.com/images/fe.jpg',
     difficulty: 'intermediate',
-    category: 'it',
-    estimatedStudyTime: '40時間',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-14T00:00:00Z',
+    mainCategory: '基礎理論' as MainCategory,
+    category: 'アルゴリズムとプログラミング',
+    subCategory: 'アルゴリズムとプログラミング',
+    estimatedStudyTime: '150時間',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     chapters: [
       {
         id: '1',
         certificationId: '1',
-        title: 'Chapter 1: AWS IAM',
-        description: 'AWSのIDおよびアクセス管理について学びます',
-        videoUrl: 'https://example.com/videos/aws-iam.mp4',
-        thumbnailUrl: 'https://example.com/thumbnails/aws-iam.jpg',
-        duration: '30:00',
+        title: 'アルゴリズムの基礎',
+        description: 'アルゴリズムの基本概念と代表的なアルゴリズムについて学びます',
+        videoUrl: 'https://example.com/videos/algorithm-basics.mp4',
+        thumbnailUrl: 'https://example.com/thumbnails/algorithm.jpg',
+        duration: '45:00',
         order: 1,
         status: 'published',
-        content: 'AWS IAMの基本概念と設定方法について解説します',
+        content: 'アルゴリズムとは、問題を解決するための手順や方法を定式化したものです。',
         questions: [
           {
             id: '1',
-            question: 'IAMユーザーとIAMロールの違いは何ですか？',
+            question: 'バブルソートの時間計算量は？',
             choices: [
-              { id: '1', text: 'IAMユーザーは永続的な認証情報、IAMロールは一時的な認証情報を提供する' },
-              { id: '2', text: 'IAMユーザーはAWSコンソールにログインできない' },
-              { id: '3', text: 'IAMロールはプログラムからのみ使用できる' },
-              { id: '4', text: 'IAMユーザーは一時的な認証情報のみを使用する' }
+              { id: '1', text: 'O(n^2)' },
+              { id: '2', text: 'O(n log n)' },
+              { id: '3', text: 'O(n)' },
+              { id: '4', text: 'O(1)' }
             ],
             correctAnswer: 0,
-            explanation: 'IAMユーザーは永続的な認証情報（ユーザー名とパスワード、またはアクセスキー）を持ちますが、IAMロールは一時的な認証情報を提供します。'
+            explanation: 'バブルソートは2重ループを使用するため、時間計算量はO(n^2)となります。'
           }
         ],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-14T00:00:00Z'
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: '2',
+        certificationId: '1',
+        title: 'データ構造',
+        description: '配列、リスト、木構造など、基本的なデータ構造について学びます',
+        videoUrl: 'https://example.com/videos/data-structures.mp4',
+        thumbnailUrl: 'https://example.com/thumbnails/data-structures.jpg',
+        duration: '40:00',
+        order: 2,
+        status: 'published',
+        content: 'データ構造は、データを効率的に格納し、アクセスするための仕組みです。',
+        questions: [
+          {
+            id: '2',
+            question: 'スタックの特徴として正しいものは？',
+            choices: [
+              { id: '1', text: 'LIFO (Last In First Out)' },
+              { id: '2', text: 'FIFO (First In First Out)' },
+              { id: '3', text: 'ランダムアクセス' },
+              { id: '4', text: '双方向アクセス' }
+            ],
+            correctAnswer: 0,
+            explanation: 'スタックは後入れ先出し(LIFO)の特徴を持つデータ構造です。'
+          }
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
     ]
   }
@@ -49,7 +100,14 @@ export const mockCertifications: Certification[] = [
 
 export async function GET() {
   try {
-    return NextResponse.json(mockCertifications);
+    const { resources: certifications } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'certification'"
+      })
+      .fetchAll();
+
+
+    return NextResponse.json(certifications);
   } catch (error) {
     console.error('Error fetching certifications:', error);
     return NextResponse.json(
@@ -64,7 +122,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
-    const category = formData.get('category') as 'finance' | 'it' | 'business';
+    const category = formData.get('category') as string;
     const difficulty = formData.get('difficulty') as 'beginner' | 'intermediate' | 'advanced';
     const estimatedStudyTime = formData.get('estimatedStudyTime') as string;
     const imageFile = formData.get('image') as File | null;
@@ -77,41 +135,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let imageUrl: string;
-    if (imageFile) {
-      // 画像ファイルがある場合はアップロード
-      const buffer = Buffer.from(await imageFile.arrayBuffer());
-      imageUrl = await uploadFile(CONTAINERS.CERTIFICATION_IMAGES, buffer, imageFile.name, imageFile.type);
-    } else {
-      // 画像ファイルがない場合はExpress APIを使用してAIで生成
-      const generateResponse = await fetch(`${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/api/images/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: description }),
-      });
+    // デフォルトのアイコン画像を使用
+    const imageUrl = `/images/${category}.svg`;
 
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json();
-        throw new Error(errorData.details || errorData.message || 'Failed to generate image');
-      }
+    // CosmosDBに保存
+    // 既存の資格を取得して、次のIDを生成
+    const { resources: existingCertifications } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'certification'"
+      })
+      .fetchAll();
 
-      const { url: generatedImageUrl } = await generateResponse.json();
-      if (!generatedImageUrl) {
-        throw new Error('No image URL received from image generation API');
-      }
+    const nextId = (existingCertifications.length + 1).toString();
 
-      const response = await fetch(generatedImageUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'generated-image.png', { type: 'image/png' });
-      const buffer = Buffer.from(await file.arrayBuffer());
-      imageUrl = await uploadFile(CONTAINERS.CERTIFICATION_IMAGES, buffer, file.name, file.type);
-    }
-
-    // 仮の実装（開発用）
-    const newCertification: Certification = {
-      id: (mockCertifications.length + 1).toString(),
+    const newCertification: Certification & { type: string } = {
+      id: nextId,
+      type: 'certification', // ドキュメントタイプを指定
       name,
       description,
       imageUrl,
@@ -123,8 +162,8 @@ export async function POST(request: NextRequest) {
       chapters: []
     };
 
-    mockCertifications.push(newCertification);
-    return NextResponse.json(newCertification);
+    const { resource: createdCertification } = await container.items.create(newCertification);
+    return NextResponse.json(createdCertification);
   } catch (error) {
     console.error('Error creating certification:', error);
     return NextResponse.json(

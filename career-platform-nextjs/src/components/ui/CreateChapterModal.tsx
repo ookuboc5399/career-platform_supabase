@@ -6,11 +6,12 @@ import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
+import { CertificationQuestion, Choice } from '@/types/api';
 
 interface CreateChapterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Omit<ChapterContent, 'id'> & { order: number; videoUrl: string }) => void;
+  onSave: (data: { title: string; content: string; order: number; videoUrl: string; webText: string; questions: CertificationQuestion[] }) => void;
   currentMaxOrder: number;
 }
 
@@ -61,7 +62,6 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     setSelectedChapterIndex(0);
   }, [currentMaxOrder]);
 
-  // モーダルが開かれたときに初期値を設定
   useEffect(() => {
     if (isOpen) {
       setOrder(currentMaxOrder + 1);
@@ -71,6 +71,19 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     }
   }, [isOpen, currentMaxOrder, resetForm]);
 
+  const convertQuestions = (questions: Question[]): CertificationQuestion[] => {
+    return questions.map(q => ({
+      id: Math.random().toString(36).substring(2, 15),
+      question: q.question,
+      choices: q.options.map(option => ({
+        id: Math.random().toString(36).substring(2, 15),
+        text: option
+      })),
+      correctAnswer: q.correctAnswers[0],
+      explanation: q.explanation
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -79,7 +92,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
       order,
       videoUrl,
       webText,
-      questions,
+      questions: convertQuestions(questions),
     });
     onClose();
     resetForm();
@@ -130,7 +143,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
         order: currentMaxOrder + index + 1,
         videoUrl: '',
         webText: chapter.webText,
-        questions: chapter.questions,
+        questions: convertQuestions(chapter.questions),
       });
     });
     onClose();

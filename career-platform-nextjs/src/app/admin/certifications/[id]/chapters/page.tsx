@@ -6,26 +6,15 @@ import { use } from 'react';
 import { Button } from '@/components/ui/button';
 import { CreateChapterModal } from '@/components/ui/CreateChapterModal';
 import { EditChapterModal } from '@/components/ui/EditChapterModal';
+import { CertificationChapter, CertificationQuestion } from '@/types/api';
+import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
 
-interface Chapter {
-  id: string;
-  title: string;
+type Chapter = Omit<CertificationChapter, 'createdAt' | 'updatedAt' | 'thumbnailUrl' | 'duration' | 'status' | 'description'> & {
+  certificationId: string;
   content: string;
-  order: number;
-  videoUrl: string;
-  questions: {
-    question: string;
-    options: string[];
-    correctAnswers: number[];
-    explanation: string;
-    explanationImages: string[];
-    explanationTable?: {
-      headers: string[];
-      rows: string[][];
-    };
-  }[];
   webText: string;
-}
+  questions: CertificationQuestion[];
+};
 
 export default function ChaptersPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -34,6 +23,10 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [googleDriveFolderId, setGoogleDriveFolderId] = useState('');
+  const [generatedChapters, setGeneratedChapters] = useState<ChapterContent[]>([]);
+  const [selectedChapterIndex, setSelectedChapterIndex] = useState<number>(0);
   const { id: certificationId } = use(params);
 
   useEffect(() => {
@@ -65,7 +58,7 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
     }
   };
 
-  const handleCreateChapter = async (data: Omit<Chapter, 'id'>) => {
+  const handleCreateChapter = async (data: { title: string; content: string; order: number; videoUrl: string; webText: string; questions: ChapterContent['questions'] }) => {
     try {
       console.log('Creating chapter with data:', data);
       const response = await fetch(`/api/certifications/${certificationId}/chapters`, {
@@ -73,7 +66,14 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          certificationId,
+          status: 'draft',
+          thumbnailUrl: '',
+          duration: '',
+          description: data.content,
+        }),
       });
 
       const responseData = await response.json();
@@ -99,10 +99,21 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          certificationId,
+          status: 'draft',
+          thumbnailUrl: '',
+          duration: '',
+          description: data.content,
+        }),
       });
 
-      if (!response.ok) throw new Error('Failed to update chapter');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        throw new Error(`Failed to update chapter: ${JSON.stringify(errorData)}`);
+      }
       
       setIsEditModalOpen(false);
       setSelectedChapter(null);
@@ -125,6 +136,48 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
       fetchChapters();
     } catch (error) {
       console.error('Error deleting chapter:', error);
+    }
+  };
+
+  const handleGoogleDriveProcess = async () => {
+    if (!googleDriveFolderId) {
+      alert('Google DriveフォルダIDを入力してください');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const chapters = await processGoogleDriveImages(googleDriveFolderId);
+      console.log('Generated chapters:', chapters);
+      setGeneratedChapters(chapters);
+      
+      if (chapters.length > 0) {
+        setSelectedChapterIndex(0);
+      }
+    } catch (error) {
+      console.error('Error processing Google Drive images:', error);
+      alert('画像の処理中にエラーが発生しました');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    try {
+      for (const [index, chapter] of generatedChapters.entries()) {
+        await handleCreateChapter({
+          title: chapter.title,
+          content: chapter.content,
+          order: chapters.length + index + 1,
+          videoUrl: '',
+          webText: chapter.webText,
+          questions: chapter.questions
+        });
+      }
+      setGeneratedChapters([]);
+      setSelectedChapterIndex(0);
+    } catch (error) {
+      console.error('Error saving all chapters:', error);
     }
   };
 
@@ -155,6 +208,56 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
           新規チャプター作成
         </Button>
       </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg mb-8">
+        <h3 className="text-lg font-medium mb-4">Google Drive画像からコンテンツを生成</h3>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={googleDriveFolderId}
+            onChange={(e) => setGoogleDriveFolderId(e.target.value)}
+            placeholder="Google DriveフォルダID"
+            className="flex-1 p-2 border rounded-lg"
+          />
+          <Button
+            onClick={handleGoogleDriveProcess}
+            disabled={isProcessing}
+            className="min-w-[120px]"
+          >
+            {isProcessing ? '処理中...' : '生成'}
+          </Button>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">
+          Google DriveフォルダIDを入力して、フォルダ内の画像からコンテンツを自動生成します。
+        </p>
+      </div>
+
+      {generatedChapters.length > 0 && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">生成されたチャプター</h3>
+            <Button onClick={handleSaveAll}>すべて保存</Button>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {generatedChapters.map((chapter, index) => (
+              <Button
+                key={index}
+                onClick={() => setSelectedChapterIndex(index)}
+                variant={selectedChapterIndex === index ? "default" : "outline"}
+              >
+                {chapter.title || `チャプター${index + 1}`}
+              </Button>
+            ))}
+          </div>
+          {generatedChapters[selectedChapterIndex] && (
+            <div className="bg-white p-4 rounded-lg border">
+              <h4 className="font-medium mb-2">{generatedChapters[selectedChapterIndex].title}</h4>
+              <p className="text-gray-600 mb-4">{generatedChapters[selectedChapterIndex].content}</p>
+              <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: generatedChapters[selectedChapterIndex].webText }} />
+            </div>
+          )}
+        </div>
+      )}
 
       {chapters.length === 0 ? (
         <div className="text-center py-12">

@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CreateCertificationModal } from '@/components/ui/CreateCertificationModal';
+import { EditCertificationModal } from '@/components/ui/EditCertificationModal';
+import { updateCertification } from '@/lib/api';
 
 interface Certification {
   id: string;
   name: string;
   description: string;
   category: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedStudyTime: string;
 }
 
 const categories = [
@@ -29,7 +33,9 @@ export default function CertificationsPage() {
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
 
   useEffect(() => {
     fetchCertifications();
@@ -38,22 +44,12 @@ export default function CertificationsPage() {
   const fetchCertifications = async () => {
     try {
       setIsLoading(true);
-      // TODO: APIから資格情報を取得
-      const mockData = [
-        {
-          id: '1',
-          name: '基本情報技術者試験',
-          description: 'IT業界の登竜門となる国家資格です。',
-          category: 'it'
-        },
-        {
-          id: '2',
-          name: '一種外務員・二種外務員',
-          description: '金融商品取引業者において業務を行うために必要な資格です。',
-          category: 'finance'
-        },
-      ];
-      setCertifications(mockData);
+      const response = await fetch('/api/certifications');
+      if (!response.ok) {
+        throw new Error('Failed to fetch certifications');
+      }
+      const data = await response.json();
+      setCertifications(data);
     } catch (error) {
       console.error('Failed to fetch certifications:', error);
     } finally {
@@ -62,15 +58,40 @@ export default function CertificationsPage() {
   };
 
   const handleCreate = () => {
-    setIsModalOpen(true);
+    setIsCreateModalOpen(true);
   };
 
-  const handleSave = async (data: { name: string; description: string; category: string }) => {
+  const handleEdit = (certification: Certification) => {
+    setSelectedCertification(certification);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCreateSave = async (data: {
+    name: string;
+    description: string;
+    category: string;
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    estimatedStudyTime: string;
+  }) => {
     try {
-      // TODO: APIで資格を作成
-      console.log('Creating certification:', data);
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('description', data.description);
+      formData.append('category', data.category);
+      formData.append('difficulty', data.difficulty);
+      formData.append('estimatedStudyTime', data.estimatedStudyTime);
+
+      const response = await fetch('/api/certifications', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create certification');
+      }
+
       await fetchCertifications();
-      setIsModalOpen(false);
+      setIsCreateModalOpen(false);
     } catch (error) {
       console.error('Failed to create certification:', error);
     }
@@ -83,7 +104,14 @@ export default function CertificationsPage() {
   const handleDelete = async (id: string) => {
     if (window.confirm('この資格を削除してもよろしいですか？')) {
       try {
-        // TODO: APIで資格を削除
+        const response = await fetch(`/api/certifications/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete certification');
+        }
+
         await fetchCertifications();
       } catch (error) {
         console.error('Failed to delete certification:', error);
@@ -146,21 +174,56 @@ export default function CertificationsPage() {
             <div className="p-6">
               <div className="mb-4">
                 <h2 className="text-xl font-bold mb-2">{certification.name}</h2>
-                <p className="text-gray-600">{certification.description}</p>
+                <p className="text-gray-600 mb-4">{certification.description}</p>
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className={`px-2 py-1 rounded text-sm ${
+                    certification.difficulty === 'beginner'
+                      ? 'bg-green-100 text-green-800'
+                      : certification.difficulty === 'intermediate'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {certification.difficulty === 'beginner'
+                      ? '初級'
+                      : certification.difficulty === 'intermediate'
+                      ? '中級'
+                      : '上級'}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    学習時間: {certification.estimatedStudyTime}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  onClick={() => handleManageChapters(certification.id)}
-                  variant="outline"
-                >
-                  チャプター管理
-                </Button>
-                <Button
-                  onClick={() => handleDelete(certification.id)}
-                  variant="destructive"
-                >
-                  削除
-                </Button>
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <Button
+                    onClick={() => handleEdit(certification)}
+                    variant="outline"
+                    className="text-blue-600 border-blue-600"
+                  >
+                    編集
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleManageChapters(certification.id)}
+                      variant="outline"
+                    >
+                      チャプター管理
+                    </Button>
+                    <Button
+                      onClick={() => router.push(`/admin/certifications/${certification.id}/questions`)}
+                      variant="outline"
+                    >
+                      総合問題管理
+                    </Button>
+                    <Button
+                      onClick={() => handleDelete(certification.id)}
+                      variant="destructive"
+                    >
+                      削除
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -168,10 +231,44 @@ export default function CertificationsPage() {
       </div>
 
       <CreateCertificationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSave}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleCreateSave}
       />
+
+      {selectedCertification && (
+        <EditCertificationModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={async (data) => {
+            try {
+              const response = await fetch(`/api/certifications/${selectedCertification.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Failed to update certification: ${JSON.stringify(errorData)}`);
+              }
+              await fetchCertifications();
+              setIsEditModalOpen(false);
+            } catch (error) {
+              console.error('Failed to update certification:', error);
+            }
+          }}
+          initialData={{
+            name: selectedCertification.name,
+            description: selectedCertification.description,
+            category: selectedCertification.category,
+            difficulty: selectedCertification.difficulty,
+            estimatedStudyTime: selectedCertification.estimatedStudyTime,
+          }}
+        />
+      )}
     </div>
   );
 }

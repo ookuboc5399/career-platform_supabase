@@ -1,221 +1,181 @@
-'use client';
+import { getCertification } from '@/lib/api';
+import ChapterContent from './ChapterContent';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-
-interface Question {
-  question: string;
-  options: string[];
-  correctAnswers: number[];
+interface Props {
+  params: {
+    id: string;
+    chapterId: string;
+  };
 }
 
-interface Chapter {
-  id: string;
-  title: string;
-  content: string;
-  order: number;
-  videoUrl: string;
-  questions: Question[];
-  webText: string;
-}
-
-enum ContentType {
-  Video = 'video',
-  WebText = 'webtext',
-  Questions = 'questions',
-}
-
-export default function ChapterPage({ params }: { params: Promise<{ id: string; chapterId: string }> }) {
-  const resolvedParams = use(params);
-  const router = useRouter();
-  const [chapter, setChapter] = useState<Chapter | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentContent, setCurrentContent] = useState<ContentType>(ContentType.Video);
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number[] }>({});
-  const [showResults, setShowResults] = useState(false);
-  const [nextChapterId, setNextChapterId] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    fetchChapter();
-  }, [resolvedParams.id, resolvedParams.chapterId]);
-
-  const fetchChapter = async () => {
-    try {
-      setIsLoading(true);
-      // TODO: APIからチャプター情報を取得
-      const mockData = {
-        id: '1',
-        title: '第1章: 基礎知識',
-        content: '基本的な概念と用語の解説',
-        order: 1,
-        videoUrl: '/uploads/videos/sample.mp4',
-        webText: '# 基礎知識\n\nここでは基本的な概念について学びます。',
-        questions: [
-          {
-            question: '次の記述のうち、正しいものを選んでください。',
-            options: [
-              '選択肢1',
-              '選択肢2',
-              '選択肢3',
-              '選択肢4',
-              '選択肢5',
-            ],
-            correctAnswers: [1, 3],
-          },
-        ],
-      };
-      setChapter(mockData);
-      // TODO: 次のチャプターIDを取得
-      setNextChapterId('2');
-    } catch (error) {
-      console.error('Failed to fetch chapter:', error);
-      setError('チャプター情報の取得に失敗しました');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAnswerSelect = (questionIndex: number, optionIndex: number) => {
-    const currentAnswers = selectedAnswers[questionIndex] || [];
-    const newAnswers = currentAnswers.includes(optionIndex)
-      ? currentAnswers.filter(a => a !== optionIndex)
-      : [...currentAnswers, optionIndex];
-    setSelectedAnswers({ ...selectedAnswers, [questionIndex]: newAnswers });
-  };
-
-  const checkAnswers = () => {
-    setShowResults(true);
-  };
-
-  const handleNext = () => {
-    if (currentContent === ContentType.Video) {
-      setCurrentContent(ContentType.WebText);
-    } else if (currentContent === ContentType.WebText) {
-      setCurrentContent(ContentType.Questions);
-    } else if (nextChapterId) {
-      router.push(`/certifications/${resolvedParams.id}/chapters/${nextChapterId}`);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentContent === ContentType.Questions) {
-      setCurrentContent(ContentType.WebText);
-    } else if (currentContent === ContentType.WebText) {
-      setCurrentContent(ContentType.Video);
-    }
-  };
-
-  // マウント前はnullを返す
-  if (!mounted) return null;
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
-      </div>
-    );
+export default async function ChapterPage({ params }: Props) {
+  const certification = await getCertification(params.id);
+  if (!certification) {
+    notFound();
   }
 
-  if (!chapter) return null;
+  const chapter = certification.chapters?.find(c => c.id === params.chapterId);
+  if (!chapter) {
+    notFound();
+  }
+
+  const chapterIndex = certification.chapters?.findIndex(c => c.id === params.chapterId) || 0;
+  const nextChapter = certification.chapters?.[chapterIndex + 1];
+  const prevChapter = certification.chapters?.[chapterIndex - 1];
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-2">{chapter.title}</h1>
-        <p className="text-gray-600">{chapter.content}</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        {currentContent === ContentType.Video && (
-          <div className="aspect-video relative">
-            <iframe
-              src={chapter.videoUrl}
-              className="absolute inset-0 w-full h-full"
-              allowFullScreen
-            />
-          </div>
-        )}
-
-        {currentContent === ContentType.WebText && (
-          <div className="p-6">
-            <div className="prose max-w-none">
-              {chapter.webText}
-            </div>
-          </div>
-        )}
-
-        {currentContent === ContentType.Questions && (
-          <div className="p-6">
-            <h2 className="text-xl font-bold mb-6">練習問題</h2>
-            <div className="space-y-8">
-              {chapter.questions.map((question, questionIndex) => (
-                <div key={questionIndex} className="border rounded-lg p-4">
-                  <p className="font-medium mb-4">{question.question}</p>
-                  <div className="space-y-2">
-                    {question.options.map((option, optionIndex) => (
-                      <label
-                        key={optionIndex}
-                        className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${
-                          selectedAnswers[questionIndex]?.includes(optionIndex)
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200'
-                        } ${
-                          showResults
-                            ? question.correctAnswers.includes(optionIndex)
-                              ? 'border-green-500 bg-green-50'
-                              : selectedAnswers[questionIndex]?.includes(optionIndex)
-                              ? 'border-red-500 bg-red-50'
-                              : ''
-                            : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mr-3"
-                          checked={selectedAnswers[questionIndex]?.includes(optionIndex) || false}
-                          onChange={() => handleAnswerSelect(questionIndex, optionIndex)}
-                          disabled={showResults}
-                        />
-                        {option}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {!showResults && (
-              <div className="mt-6">
-                <Button
-                  onClick={checkAnswers}
-                  className="bg-blue-600 hover:bg-blue-700 w-full"
+      <div className="max-w-4xl mx-auto">
+        <nav className="flex mb-8" aria-label="Breadcrumb">
+          <ol className="inline-flex items-center space-x-1 md:space-x-3">
+            <li className="inline-flex items-center">
+              <Link
+                href="/certifications"
+                className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
+              >
+                <svg
+                  className="w-3 h-3 mr-2.5"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
                 >
-                  解答する
-                </Button>
+                  <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
+                </svg>
+                資格・検定
+              </Link>
+            </li>
+            <li>
+              <div className="flex items-center">
+                <svg
+                  className="w-3 h-3 text-gray-400 mx-1"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 6 10"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="m1 9 4-4-4-4"
+                  />
+                </svg>
+                <Link
+                  href={`/certifications/${certification.id}`}
+                  className="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2"
+                >
+                  {certification.name}
+                </Link>
               </div>
+            </li>
+            <li aria-current="page">
+              <div className="flex items-center">
+                <svg
+                  className="w-3 h-3 text-gray-400 mx-1"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 6 10"
+                >
+                  <path
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="m1 9 4-4-4-4"
+                  />
+                </svg>
+                <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">
+                  Chapter {chapterIndex + 1}: {chapter.title}
+                </span>
+              </div>
+            </li>
+          </ol>
+        </nav>
+
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h1 className="text-2xl font-bold mb-6">
+            Chapter {chapterIndex + 1}: {chapter.title}
+          </h1>
+
+          <ChapterContent
+            chapter={chapter}
+            onComplete={() => {
+              // チャプター完了時の処理
+            }}
+          />
+
+          <div className="mt-8 flex justify-between">
+            {prevChapter ? (
+              <Link
+                href={`/certifications/${certification.id}/chapters/${prevChapter.id}`}
+                className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                前のチャプター
+              </Link>
+            ) : (
+              <div />
+            )}
+
+            {nextChapter ? (
+              <Link
+                href={`/certifications/${certification.id}/chapters/${nextChapter.id}`}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                次のチャプター
+                <svg
+                  className="w-4 h-4 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Link>
+            ) : (
+              <Link
+                href={`/certifications/${certification.id}/questions`}
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                総合問題に挑戦
+                <svg
+                  className="w-4 h-4 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Link>
             )}
           </div>
-        )}
-
-        <div className="p-6 border-t flex justify-between">
-          <Button
-            onClick={handleBack}
-            variant="outline"
-            disabled={currentContent === ContentType.Video}
-          >
-            戻る
-          </Button>
-          <Button
-            onClick={handleNext}
-            className="bg-blue-600 hover:bg-blue-700"
-            disabled={currentContent === ContentType.Questions && !showResults}
-          >
-            {currentContent === ContentType.Questions ? '次のチャプターへ' : '次へ'}
-          </Button>
         </div>
       </div>
     </div>

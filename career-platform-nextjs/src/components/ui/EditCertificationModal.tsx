@@ -1,7 +1,9 @@
-import { useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import { Button } from './button';
 
-interface CreateCertificationModalProps {
+interface EditCertificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: {
@@ -10,7 +12,14 @@ interface CreateCertificationModalProps {
     category: string;
     difficulty: 'beginner' | 'intermediate' | 'advanced';
     estimatedStudyTime: string;
-  }) => void;
+  }) => Promise<void>;
+  initialData: {
+    name: string;
+    description: string;
+    category: string;
+    difficulty: 'beginner' | 'intermediate' | 'advanced';
+    estimatedStudyTime: string;
+  };
 }
 
 const categories = [
@@ -25,27 +34,30 @@ const categories = [
   { id: 'other', name: 'その他', icon: '📋' },
 ];
 
-export function CreateCertificationModal({ isOpen, onClose, onSave }: CreateCertificationModalProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [estimatedStudyTime, setEstimatedStudyTime] = useState('');
+export function EditCertificationModal({ isOpen, onClose, onSave, initialData }: EditCertificationModalProps) {
+  const [name, setName] = useState(initialData.name);
+  const [description, setDescription] = useState(initialData.description);
+  const [category, setCategory] = useState(initialData.category);
+  const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>(initialData.difficulty);
+  const [estimatedStudyTime, setEstimatedStudyTime] = useState(initialData.estimatedStudyTime);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setName(initialData.name);
+    setDescription(initialData.description);
+    setCategory(initialData.category);
+    setDifficulty(initialData.difficulty);
+    setEstimatedStudyTime(initialData.estimatedStudyTime);
+  }, [initialData]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
+    await onSave({
       name,
       description,
       category,
       difficulty,
       estimatedStudyTime
     });
-    setName('');
-    setDescription('');
-    setCategory('');
-    setDifficulty('beginner');
-    setEstimatedStudyTime('');
   };
 
   if (!isOpen) return null;
@@ -53,7 +65,7 @@ export function CreateCertificationModal({ isOpen, onClose, onSave }: CreateCert
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-6">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 my-auto">
-        <h2 className="text-2xl font-bold mb-6">新規資格作成</h2>
+        <h2 className="text-2xl font-bold mb-6">資格編集</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -143,7 +155,7 @@ export function CreateCertificationModal({ isOpen, onClose, onSave }: CreateCert
               type="submit"
               className="bg-blue-600 hover:bg-blue-700"
             >
-              作成
+              更新
             </Button>
           </div>
         </form>

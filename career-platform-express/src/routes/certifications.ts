@@ -241,9 +241,42 @@ const deleteChapter: RequestHandler = async (req, res) => {
   }
 };
 
+// Update certification
+const updateCertification: RequestHandler = async (req, res) => {
+  try {
+    console.log('Updating certification with ID:', req.params.id);
+    const certificationId = req.params.id;
+    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
+    console.log('Found certifications:', certifications);
+    const certification = certifications.find((c: Certification) => c.id === certificationId);
+    console.log('Found certification:', certification);
+
+    if (!certification) {
+      void res.status(404).json({ error: 'Certification not found' });
+      return;
+    }
+
+    const updatedCertification = {
+      ...certification,
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+
+    const index = certifications.findIndex((c: Certification) => c.id === certificationId);
+    certifications[index] = updatedCertification;
+    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE, certifications);
+
+    void res.json(updatedCertification);
+  } catch (error) {
+    console.error('Error updating certification:', error);
+    void res.status(500).json({ error: 'Failed to update certification' });
+  }
+};
+
 router.get('/', getAllCertifications);
 router.get('/:id', getCertificationById);
 router.post('/', upload.single('image'), createCertification);
+router.put('/:id', express.json(), updateCertification);
 
 // チャプター関連のルート
 router.get('/:id/chapters', getChaptersByCertificationId);

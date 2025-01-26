@@ -5,26 +5,14 @@ import { Button } from './button';
 import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import { CertificationChapter, CertificationQuestion } from '@/types/api';
 
-interface Chapter {
-  id: string;
-  title: string;
+type Chapter = Omit<CertificationChapter, 'createdAt' | 'updatedAt' | 'thumbnailUrl' | 'duration' | 'status' | 'description'> & {
+  certificationId: string;
   content: string;
-  order: number;
-  videoUrl: string;
-  questions: {
-    question: string;
-    options: string[];
-    correctAnswers: number[];
-    explanation: string;
-    explanationImages: string[];
-    explanationTable?: {
-      headers: string[];
-      rows: string[][];
-    };
-  }[];
   webText: string;
-}
+  questions: CertificationQuestion[];
+};
 
 interface EditChapterModalProps {
   isOpen: boolean;
@@ -65,15 +53,13 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
 
   const handleQuestionChange = (index: number, field: string, value: any) => {
     const newQuestions = [...questions];
-    if (field === 'options') {
-      newQuestions[index].options[value.index] = value.text;
-    } else if (field === 'correctAnswers') {
-      const answers = value.split(',').map((num: string) => parseInt(num.trim())).filter((num: number) => !isNaN(num));
-      newQuestions[index].correctAnswers = answers;
-    } else if (field === 'explanation') {
-      newQuestions[index].explanation = value;
-    } else if (field === 'explanationTable') {
-      newQuestions[index].explanationTable = value;
+    if (field === 'choices') {
+      newQuestions[index].choices[value.index] = { id: value.id || Math.random().toString(36).substring(2, 15), text: value.text };
+    } else if (field === 'correctAnswer') {
+      const answer = parseInt(value);
+      if (!isNaN(answer)) {
+        newQuestions[index].correctAnswer = answer;
+      }
     } else {
       (newQuestions[index] as any)[field] = value;
     }
@@ -81,46 +67,19 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, {
+    const newQuestion: CertificationQuestion = {
+      id: Math.random().toString(36).substring(2, 15),
       question: '',
-      options: ['', '', '', '', ''],
-      correctAnswers: [],
+      choices: Array(5).fill('').map(() => ({ id: Math.random().toString(36).substring(2, 15), text: '' })),
+      correctAnswer: 0,
       explanation: '',
-      explanationImages: [],
-      explanationTable: {
-        headers: ['項目', '説明'],
-        rows: [['', '']],
-      },
-    }]);
+    };
+    setQuestions([...questions, newQuestion]);
   };
 
   const removeQuestion = (index: number) => {
     const newQuestions = questions.filter((_, i) => i !== index);
     setQuestions(newQuestions);
-  };
-
-  const addTableRow = (questionIndex: number) => {
-    const newQuestions = [...questions];
-    if (newQuestions[questionIndex].explanationTable) {
-      newQuestions[questionIndex].explanationTable!.rows.push(['', '']);
-      setQuestions(newQuestions);
-    }
-  };
-
-  const removeTableRow = (questionIndex: number, rowIndex: number) => {
-    const newQuestions = [...questions];
-    if (newQuestions[questionIndex].explanationTable) {
-      newQuestions[questionIndex].explanationTable!.rows.splice(rowIndex, 1);
-      setQuestions(newQuestions);
-    }
-  };
-
-  const handleTableChange = (questionIndex: number, rowIndex: number, colIndex: number, value: string) => {
-    const newQuestions = [...questions];
-    if (newQuestions[questionIndex].explanationTable) {
-      newQuestions[questionIndex].explanationTable!.rows[rowIndex][colIndex] = value;
-      setQuestions(newQuestions);
-    }
   };
 
   return (
@@ -214,13 +173,13 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         選択肢
                       </label>
-                      {question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="mb-2">
+                      {question.choices.map((choice, choiceIndex) => (
+                        <div key={choice.id} className="mb-2">
                           <input
                             type="text"
-                            value={option}
-                            onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
-                            placeholder={`選択肢 ${optionIndex + 1}`}
+                            value={choice.text}
+                            onChange={(e) => handleQuestionChange(questionIndex, 'choices', { index: choiceIndex, text: e.target.value, id: choice.id })}
+                            placeholder={`選択肢 ${choiceIndex + 1}`}
                             className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           />
@@ -230,13 +189,14 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        正解の選択肢番号（カンマ区切りで複数選択可）
+                        正解の選択肢番号
                       </label>
                       <input
-                        type="text"
-                        value={question.correctAnswers.join(', ')}
-                        onChange={(e) => handleQuestionChange(questionIndex, 'correctAnswers', e.target.value)}
-                        placeholder="例: 1, 3"
+                        type="number"
+                        value={question.correctAnswer}
+                        onChange={(e) => handleQuestionChange(questionIndex, 'correctAnswer', e.target.value)}
+                        min={0}
+                        max={4}
                         className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required
                       />
@@ -251,69 +211,6 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
                         onChange={(value) => handleQuestionChange(questionIndex, 'explanation', value)}
                         height="h-48"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        解説用テーブル
-                      </label>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead>
-                            <tr>
-                              {question.explanationTable?.headers.map((header, index) => (
-                                <th key={index} className="px-4 py-2 bg-gray-50">
-                                  <input
-                                    type="text"
-                                    value={header}
-                                    onChange={(e) => {
-                                      const newQuestions = [...questions];
-                                      newQuestions[questionIndex].explanationTable!.headers[index] = e.target.value;
-                                      setQuestions(newQuestions);
-                                    }}
-                                    className="w-full p-1 border rounded"
-                                  />
-                                </th>
-                              ))}
-                              <th className="w-20 px-4 py-2 bg-gray-50">操作</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {question.explanationTable?.rows.map((row, rowIndex) => (
-                              <tr key={rowIndex}>
-                                {row.map((cell, colIndex) => (
-                                  <td key={colIndex} className="px-4 py-2">
-                                    <input
-                                      type="text"
-                                      value={cell}
-                                      onChange={(e) => handleTableChange(questionIndex, rowIndex, colIndex, e.target.value)}
-                                      className="w-full p-1 border rounded"
-                                    />
-                                  </td>
-                                ))}
-                                <td className="px-4 py-2">
-                                  <Button
-                                    type="button"
-                                    onClick={() => removeTableRow(questionIndex, rowIndex)}
-                                    variant="destructive"
-                                    className="w-full"
-                                  >
-                                    削除
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={() => addTableRow(questionIndex)}
-                        variant="outline"
-                        className="mt-2"
-                      >
-                        行を追加
-                      </Button>
                     </div>
                   </div>
                 </div>

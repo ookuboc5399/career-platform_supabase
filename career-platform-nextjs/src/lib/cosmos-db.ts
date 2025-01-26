@@ -154,13 +154,18 @@ export interface ProgrammingProgress {
 
 export interface Certification {
   id: string;
-  title: string;
+  type: string;
+  name: string;
   description: string;
   imageUrl: string;
-  category: 'finance' | 'it' | 'business';
+  mainCategory: string;
+  category: string;
+  subCategory: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedHours: number;
-  price: number;
+  estimatedStudyTime: string;
+  chapters?: CertificationChapter[];
+  createdAt: string;
+  updatedAt: string;
   _rid?: string;
   _self?: string;
   _etag?: string;
@@ -169,13 +174,14 @@ export interface Certification {
 }
 
 export interface CreateCertificationInput {
-  title: string;
+  name: string;
   description: string;
   imageUrl: string;
-  category: 'finance' | 'it' | 'business';
+  mainCategory: string;
+  category: string;
+  subCategory: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedHours: number;
-  price: number;
+  estimatedStudyTime: string;
 }
 
 export interface UpdateCertificationInput extends Partial<CreateCertificationInput> {}
@@ -185,23 +191,24 @@ export interface CertificationChapter {
   certificationId: string;
   title: string;
   description: string;
-  content: string;
   videoUrl: string;
   thumbnailUrl: string;
   duration: string;
   order: number;
+  status: 'draft' | 'published';
+  content: string;
   questions: {
+    id: string;
     question: string;
-    options: string[];
-    correctAnswers: number[];
+    choices: {
+      id: string;
+      text: string;
+    }[];
+    correctAnswer: number;
     explanation: string;
-    explanationImages: string[];
-    explanationTable?: {
-      headers: string[];
-      rows: string[][];
-    };
   }[];
-  webText: string;
+  createdAt: string;
+  updatedAt: string;
   _rid?: string;
   _self?: string;
   _etag?: string;
