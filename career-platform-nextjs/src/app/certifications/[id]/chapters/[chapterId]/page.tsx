@@ -1,182 +1,267 @@
-import { getCertification } from '@/lib/api';
-import ChapterContent from './ChapterContent';
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
+"use client";
 
-interface Props {
-  params: {
-    id: string;
-    chapterId: string;
+import { useEffect, useState, use } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import VideoPlayer from '@/components/ui/VideoPlayer';
+import { CertificationChapter, CertificationProgress } from '@/types/api';
+
+export default function ChapterPage({ params }: { params: Promise<{ id: string; chapterId: string }> }) {
+  const router = useRouter();
+  const [chapter, setChapter] = useState<CertificationChapter | null>(null);
+  const [progress, setProgress] = useState<CertificationProgress | null>(null);
+  const [nextChapter, setNextChapter] = useState<CertificationChapter | null>(null);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const { id: certificationId, chapterId } = use(params);
+
+  useEffect(() => {
+    fetchChapter();
+    fetchProgress();
+    fetchNextChapter();
+  }, [certificationId, chapterId]);
+
+  const fetchNextChapter = async () => {
+    try {
+      const response = await fetch(`/api/certifications/${certificationId}/chapters`);
+      if (!response.ok) throw new Error('Failed to fetch chapters');
+      const chapters = await response.json();
+      
+      // 現在のチャプターの次のチャプターを探す
+      const sortedChapters = chapters.sort((a: CertificationChapter, b: CertificationChapter) => a.order - b.order);
+      const currentIndex = sortedChapters.findIndex((c: CertificationChapter) => c.id === chapterId);
+      if (currentIndex !== -1 && currentIndex < sortedChapters.length - 1) {
+        setNextChapter(sortedChapters[currentIndex + 1]);
+      }
+    } catch (error) {
+      console.error('Error fetching next chapter:', error);
+    }
   };
-}
 
-export default async function ChapterPage({ params }: Props) {
-  const certification = await getCertification(params.id);
-  if (!certification) {
-    notFound();
+  const fetchProgress = async () => {
+    try {
+      const response = await fetch(`/api/certifications/progress?certificationId=${certificationId}&chapterId=${chapterId}`);
+      if (!response.ok) throw new Error('Failed to fetch progress');
+      const data = await response.json();
+      setProgress(data);
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+    }
+  };
+
+  const fetchChapter = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/certifications/chapters/${chapterId}?certificationId=${certificationId}`);
+      if (!response.ok) throw new Error('Failed to fetch chapter');
+      const data = await response.json();
+      setChapter(data);
+    } catch (error) {
+      console.error('Error fetching chapter:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAnswerSelect = async (questionIndex: number, choiceIndex: number) => {
+    if (!chapter || !chapter.questions) return;
+    
+    const question = chapter.questions[questionIndex];
+    if (!question) return;
+
+    try {
+      const response = await fetch('/api/certifications/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          certificationId,
+          chapterId,
+          questionId: question.id,
+          isCorrect: choiceIndex === question.correctAnswer,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update progress');
+      
+      // 進捗を再取得して表示を更新
+      fetchProgress();
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
+
+  const handleVideoComplete = async () => {
+    try {
+      const response = await fetch('/api/certifications/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          certificationId,
+          chapterId,
+          videoCompleted: true,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update progress');
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      </div>
+    );
   }
 
-  const chapter = certification.chapters?.find(c => c.id === params.chapterId);
   if (!chapter) {
-    notFound();
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center">
+          <p className="text-gray-500">チャプターが見つかりません</p>
+        </div>
+      </div>
+    );
   }
-
-  const chapterIndex = certification.chapters?.findIndex(c => c.id === params.chapterId) || 0;
-  const nextChapter = certification.chapters?.[chapterIndex + 1];
-  const prevChapter = certification.chapters?.[chapterIndex - 1];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <nav className="flex mb-8" aria-label="Breadcrumb">
-          <ol className="inline-flex items-center space-x-1 md:space-x-3">
-            <li className="inline-flex items-center">
-              <Link
-                href="/certifications"
-                className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
-              >
-                <svg
-                  className="w-3 h-3 mr-2.5"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
-                </svg>
-                資格・検定
-              </Link>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <svg
-                  className="w-3 h-3 text-gray-400 mx-1"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 6 10"
-                >
-                  <path
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="m1 9 4-4-4-4"
-                  />
-                </svg>
-                <Link
-                  href={`/certifications/${certification.id}`}
-                  className="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2"
-                >
-                  {certification.name}
-                </Link>
-              </div>
-            </li>
-            <li aria-current="page">
-              <div className="flex items-center">
-                <svg
-                  className="w-3 h-3 text-gray-400 mx-1"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 6 10"
-                >
-                  <path
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="m1 9 4-4-4-4"
-                  />
-                </svg>
-                <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">
-                  Chapter {chapterIndex + 1}: {chapter.title}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+    <div className="container mx-auto py-8">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          onClick={() => router.push(`/certifications/${certificationId}/chapters`)}
+          variant="outline"
+          className="mb-4"
+        >
+          ← 戻る
+        </Button>
+        <h1 className="text-2xl font-bold">{chapter.title}</h1>
+      </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h1 className="text-2xl font-bold mb-6">
-            Chapter {chapterIndex + 1}: {chapter.title}
-          </h1>
-
-          <ChapterContent
-            chapter={chapter}
-            onComplete={() => {
-              // チャプター完了時の処理
-            }}
-          />
-
-          <div className="mt-8 flex justify-between">
-            {prevChapter ? (
-              <Link
-                href={`/certifications/${certification.id}/chapters/${prevChapter.id}`}
-                className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                前のチャプター
-              </Link>
-            ) : (
-              <div />
-            )}
-
-            {nextChapter ? (
-              <Link
-                href={`/certifications/${certification.id}/chapters/${nextChapter.id}`}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                次のチャプター
-                <svg
-                  className="w-4 h-4 ml-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            ) : (
-              <Link
-                href={`/certifications/${certification.id}/questions`}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                総合問題に挑戦
-                <svg
-                  className="w-4 h-4 ml-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-            )}
+      <div className="space-y-8 relative pb-16">
+        {/* ビデオセクション */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="aspect-video">
+            <VideoPlayer 
+              url={chapter.videoUrl} 
+              onComplete={handleVideoComplete}
+              completed={progress?.videoCompleted}
+            />
+          </div>
+          <div className="p-6">
+            <p className="text-gray-700 mb-4">{chapter.description}</p>
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: chapter.content }} />
           </div>
         </div>
+
+        {/* 問題セクション */}
+        {chapter.questions && chapter.questions.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-6">確認問題</h2>
+            <div className="space-y-6">
+              {chapter.questions.map((question, index) => (
+                <div key={question.id} className="space-y-4">
+                  <p className="font-medium">{index + 1}. {question.question}</p>
+                  <div className="grid gap-3">
+                    {question.choices.map((choice, choiceIndex) => {
+                      const letter = String.fromCharCode(65 + choiceIndex); // A, B, C...
+                      const isAnswered = question.id in answeredQuestions;
+                      const isSelected = answeredQuestions[question.id] === choiceIndex;
+                      const isCorrect = choiceIndex === question.correctAnswer;
+                      
+                      return (
+                        <button
+                          key={choice.id}
+                          onClick={() => {
+                            if (!isAnswered) {
+                              handleAnswerSelect(index, choiceIndex);
+                              setAnsweredQuestions(prev => ({
+                                ...prev,
+                                [question.id]: choiceIndex
+                              }));
+                            }
+                          }}
+                          className={`p-3 border rounded-lg text-left hover:bg-gray-50 flex items-center gap-4 ${
+                            isAnswered && isSelected
+                              ? isCorrect
+                                ? 'bg-green-100 border-green-500'
+                                : 'bg-red-100 border-red-500'
+                              : isAnswered && isCorrect
+                              ? 'bg-green-100 border-green-500'
+                              : ''
+                          }`}
+                          disabled={isAnswered}
+                        >
+                          <span className="font-semibold min-w-[24px]">{letter}.</span>
+                          <span>{choice.text}</span>
+                          {isAnswered && isSelected && (
+                            <span className="ml-auto">
+                              {isCorrect ? (
+                                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(question.id in answeredQuestions) && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <p className="font-medium text-gray-700 mb-2">
+                        {answeredQuestions[question.id] === question.correctAnswer ? (
+                          <span className="text-green-600">正解です！</span>
+                        ) : (
+                          <span className="text-red-600">不正解です。正解は {String.fromCharCode(65 + question.correctAnswer)} です。</span>
+                        )}
+                      </p>
+                      <p className="font-medium text-gray-700">解説:</p>
+                      <p className="text-gray-600">{question.explanation}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 次へボタン */}
+        {nextChapter && (
+          <div className="fixed bottom-8 right-8">
+            <Button
+              onClick={() => router.push(`/certifications/${certificationId}/chapters/${nextChapter.id}`)}
+              className="bg-blue-600 text-white px-8 py-4 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              次のチャプターへ
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                />
+              </svg>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

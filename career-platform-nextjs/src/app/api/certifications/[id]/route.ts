@@ -8,23 +8,35 @@ const client = new CosmosClient({
 });
 const database = client.database('career-platform');
 const container = database.container('certifications');
+const certificationQuestionsContainer = database.container('certification-questions');
 
-export async function GET(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, context: { params: { id: string } }) {
   try {
     const resolvedParams = await Promise.resolve(context.params);
-    const { resource: certification } = await container.item(resolvedParams.id, resolvedParams.id).read();
+    console.log('GET /api/certifications/[id] - Start');
+    console.log('Certification ID:', resolvedParams.id);
     
+    // 認定試験を取得
+    const { resource: certification } = await container.item(resolvedParams.id, resolvedParams.id).read();
     if (!certification) {
-      return NextResponse.json(
-        { error: 'Certification not found' },
-        { status: 404 }
-      );
+      console.log('Certification not found');
+      return NextResponse.json({ error: 'Certification not found' }, { status: 404 });
     }
+    console.log('Found certification:', certification);
 
-    return NextResponse.json(certification);
+    // 問題を取得
+    const { resources: questions } = await certificationQuestionsContainer.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
+        parameters: [{ name: '@certificationId', value: resolvedParams.id }]
+      })
+      .fetchAll();
+    console.log('Found questions:', questions);
+
+    return NextResponse.json({
+      ...certification,
+      questions: questions || []
+    });
   } catch (error) {
     console.error('Error fetching certification:', error);
     return NextResponse.json(

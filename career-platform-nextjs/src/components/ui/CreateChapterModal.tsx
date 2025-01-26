@@ -6,7 +6,7 @@ import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
-import { CertificationQuestion, Choice } from '@/types/api';
+import { CertificationQuestion } from '@/types/api';
 
 interface CreateChapterModalProps {
   isOpen: boolean;

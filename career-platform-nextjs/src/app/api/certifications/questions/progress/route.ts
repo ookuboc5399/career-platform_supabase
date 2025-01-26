@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || ''
-});
-const database = client.database('career-platform');
-const container = database.container('certification-progress');
+import { createCertificationQuestionProgress, getCertificationQuestionProgress } from '@/lib/cosmos-db';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/certifications/progress - Start');
+    console.log('POST /api/certifications/questions/progress - Start');
     const body = await request.json();
     console.log('Request body:', body);
 
     const { certificationId, questionId, selectedAnswer } = body;
 
     // 問題データを取得して正解を確認
+    const client = new CosmosClient({
+      endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+      key: process.env.COSMOS_DB_KEY || ''
+    });
+    const database = client.database('career-platform');
     const questionsContainer = database.container('certification-questions');
     const { resource: question } = await questionsContainer.item(questionId, questionId).read();
+    
     if (!question) {
       return NextResponse.json(
         { error: 'Question not found' },
@@ -29,21 +29,16 @@ export async function POST(request: NextRequest) {
     const isCorrect = question.correctAnswers.includes(selectedAnswer);
 
     // 進捗を記録
-    const id = `${certificationId}-${questionId}`;
-    const progress = {
-      id,
+    const progress = await createCertificationQuestionProgress({
       certificationId,
       questionId,
       selectedAnswer,
       isCorrect,
       timestamp: new Date().toISOString(),
-    };
+    });
 
-    console.log('Creating progress:', progress);
-    const { resource } = await container.items.upsert(progress);
-    console.log('Created progress:', resource);
-
-    return NextResponse.json(resource);
+    console.log('Created progress:', progress);
+    return NextResponse.json(progress);
   } catch (error) {
     console.error('Error creating progress:', error);
     return NextResponse.json(
@@ -55,7 +50,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/certifications/progress - Start');
+    console.log('GET /api/certifications/questions/progress - Start');
     const url = new URL(request.url);
     const certificationId = url.searchParams.get('certificationId');
     console.log('Certification ID:', certificationId);
@@ -67,15 +62,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { resources } = await container.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.certificationId = @certificationId ORDER BY c.timestamp DESC',
-        parameters: [{ name: '@certificationId', value: certificationId }]
-      })
-      .fetchAll();
-
-    console.log('Found progress:', resources);
-    return NextResponse.json(resources);
+    const progress = await getCertificationQuestionProgress(certificationId);
+    console.log('Found progress:', progress);
+    return NextResponse.json(progress);
   } catch (error) {
     console.error('Error fetching progress:', error);
     return NextResponse.json(

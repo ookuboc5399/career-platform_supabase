@@ -175,6 +175,7 @@ export interface CertificationProgress extends Progress {
   certificationId: string;
   chapterId: string;
   completedQuestions: string[];
+  answers: Record<string, number>;
 }
 
 export interface ProgrammingProgress extends Progress {
@@ -204,6 +205,7 @@ export interface UpdateProgressDto {
   videoCompleted?: boolean;
   completedExercises?: string[];
   completedQuestions?: string[];
+  answers?: Record<string, number>;
   weakPoints?: string[];
   strengths?: string[];
   categoryScores?: {

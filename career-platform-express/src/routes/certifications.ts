@@ -1,19 +1,17 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
-import { uploadFile, CONTAINERS, saveJsonData, loadJsonData } from '../lib/storage';
+import { uploadFile, CONTAINERS } from '../lib/storage';
+import { getCertifications, getCertification, createCertification as createCertificationInDb, updateCertification as updateCertificationInDb, getCertificationChapters, createCertificationChapter, certificationChaptersContainer, initializeDatabase } from '../lib/cosmos-db';
 import { Certification, CertificationChapter } from '../types/api';
 
 const router = express.Router();
 const upload = multer();
 
-const CERTIFICATIONS_FILE = 'certifications.json';
-const CHAPTERS_FILE = 'chapters.json';
-
 // Get all certifications
 const getAllCertifications: RequestHandler = async (_req, res) => {
   try {
     console.log('Fetching all certifications');
-    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
+    const certifications = await getCertifications();
     void res.json(certifications);
   } catch (error) {
     console.error('Error fetching certifications:', error);
@@ -25,8 +23,7 @@ const getAllCertifications: RequestHandler = async (_req, res) => {
 const getCertificationById: RequestHandler = async (req, res) => {
   try {
     console.log('Fetching certification by ID:', req.params.id);
-    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
-    const certification = certifications.find((c: Certification) => c.id === req.params.id);
+    const certification = await getCertification(req.params.id);
     
     if (!certification) {
       console.log('Certification not found:', req.params.id);
@@ -67,9 +64,6 @@ const createCertification: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    // 既存の資格情報を読み込む
-    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
-
     // 画像ファイルがある場合はアップロード
     const imageUrl = req.file
       ? await uploadFile(
@@ -80,21 +74,16 @@ const createCertification: RequestHandler = async (req, res, next) => {
         )
       : '';
 
-    const newCertification: Certification = {
-      id: (certifications.length + 1).toString(),
+    const newCertification = await createCertificationInDb({
       name,
       description,
       imageUrl,
       category: category as 'finance' | 'it' | 'business',
       difficulty: difficulty as 'beginner' | 'intermediate' | 'advanced',
       estimatedStudyTime,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      chapters: []
-    };
-
-    certifications.push(newCertification);
-    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE, certifications);
+      mainCategory: '',
+      subCategory: '',
+    });
 
     void res.status(201).json(newCertification);
   } catch (error) {
@@ -107,9 +96,8 @@ const createCertification: RequestHandler = async (req, res, next) => {
 const getChaptersByCertificationId: RequestHandler = async (req, res) => {
   try {
     console.log('Fetching chapters for certification:', req.params.id);
-    const chapters = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE);
-    const certificationChapters = chapters.filter((c: CertificationChapter) => c.certificationId === req.params.id);
-    void res.json(certificationChapters);
+    const chapters = await getCertificationChapters(req.params.id);
+    void res.json(chapters);
   } catch (error) {
     console.error('Error fetching chapters:', error);
     void res.status(500).json({ error: 'Failed to fetch chapters' });
@@ -152,11 +140,7 @@ const createChapter: RequestHandler = async (req, res) => {
       thumbnailFile.mimetype
     );
 
-    // 既存のチャプターを読み込む
-    const chapters = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE);
-
-    const newChapter: CertificationChapter = {
-      id: (chapters.length + 1).toString(),
+    const newChapter = await createCertificationChapter({
       certificationId,
       title,
       description,
@@ -169,19 +153,7 @@ const createChapter: RequestHandler = async (req, res) => {
       questions: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    };
-
-    chapters.push(newChapter);
-    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE, chapters);
-
-    // 資格情報のchaptersも更新
-    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
-    const certification = certifications.find((c: Certification) => c.id === certificationId);
-    if (certification) {
-      certification.chapters = certification.chapters || [];
-      certification.chapters.push(newChapter);
-      await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE, certifications);
-    }
+    });
 
     void res.status(201).json(newChapter);
   } catch (error) {
@@ -193,26 +165,24 @@ const createChapter: RequestHandler = async (req, res) => {
 // Update chapter
 const updateChapter: RequestHandler = async (req, res) => {
   try {
+    if (!certificationChaptersContainer) await initializeDatabase();
     const chapterId = req.params.chapterId;
-    const chapters = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE);
-    const chapter = chapters.find((c: CertificationChapter) => c.id === chapterId);
+    const certificationId = req.params.id;
 
-    if (!chapter) {
+    const { resource: existingChapter } = await certificationChaptersContainer.item(chapterId, certificationId).read();
+    if (!existingChapter) {
       void res.status(404).json({ error: 'Chapter not found' });
       return;
     }
 
     const updatedChapter = {
-      ...chapter,
+      ...existingChapter,
       ...req.body,
       updatedAt: new Date().toISOString()
     };
 
-    const index = chapters.findIndex((c: CertificationChapter) => c.id === chapterId);
-    chapters[index] = updatedChapter;
-    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE, chapters);
-
-    void res.json(updatedChapter);
+    const { resource } = await certificationChaptersContainer.item(chapterId, certificationId).replace(updatedChapter);
+    void res.json(resource);
   } catch (error) {
     console.error('Error updating chapter:', error);
     void res.status(500).json({ error: 'Failed to update chapter' });
@@ -222,18 +192,11 @@ const updateChapter: RequestHandler = async (req, res) => {
 // Delete chapter
 const deleteChapter: RequestHandler = async (req, res) => {
   try {
+    if (!certificationChaptersContainer) await initializeDatabase();
     const chapterId = req.params.chapterId;
-    const chapters = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE);
-    const index = chapters.findIndex((c: CertificationChapter) => c.id === chapterId);
+    const certificationId = req.params.id;
 
-    if (index === -1) {
-      void res.status(404).json({ error: 'Chapter not found' });
-      return;
-    }
-
-    chapters.splice(index, 1);
-    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CHAPTERS_FILE, chapters);
-
+    await certificationChaptersContainer.item(chapterId, certificationId).delete();
     void res.status(204).send();
   } catch (error) {
     console.error('Error deleting chapter:', error);
@@ -246,25 +209,12 @@ const updateCertification: RequestHandler = async (req, res) => {
   try {
     console.log('Updating certification with ID:', req.params.id);
     const certificationId = req.params.id;
-    const certifications = await loadJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE);
-    console.log('Found certifications:', certifications);
-    const certification = certifications.find((c: Certification) => c.id === certificationId);
-    console.log('Found certification:', certification);
+    const updatedCertification = await updateCertificationInDb(certificationId, req.body);
 
-    if (!certification) {
+    if (!updatedCertification) {
       void res.status(404).json({ error: 'Certification not found' });
       return;
     }
-
-    const updatedCertification = {
-      ...certification,
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-
-    const index = certifications.findIndex((c: Certification) => c.id === certificationId);
-    certifications[index] = updatedCertification;
-    await saveJsonData(CONTAINERS.CERTIFICATION_DATA, CERTIFICATIONS_FILE, certifications);
 
     void res.json(updatedCertification);
   } catch (error) {

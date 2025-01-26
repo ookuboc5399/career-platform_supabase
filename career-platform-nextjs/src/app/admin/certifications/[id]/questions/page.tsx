@@ -1,110 +1,116 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
 import { Button } from '@/components/ui/button';
-import { CreateQuestionModal } from '@/components/ui/CreateQuestionModal';
+import CreateQuestionModal from '@/components/ui/CreateQuestionModal';
 import { EditQuestionModal } from '@/components/ui/EditQuestionModal';
 
 interface Question {
   id: string;
+  certificationId: string;
+  questionNumber: number;
   question: string;
   options: string[];
   correctAnswers: number[];
   explanation: string;
   explanationImages: string[];
-  explanationTable?: {
-    headers: string[];
-    rows: string[][];
-  };
   year: string;
   category: string;
+  mainCategory: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function QuestionsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id: certificationId } = use(params);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId } = use(params);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [years, setYears] = useState<Set<string>>(new Set());
+  const [categories, setCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchQuestions();
   }, [certificationId]);
 
+  useEffect(() => {
+    filterQuestions();
+  }, [searchQuery, selectedYear, selectedCategory, questions]);
+
   const fetchQuestions = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/certifications/${certificationId}/questions`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch questions');
+      const response = await fetch(`/api/certifications/${certificationId}`);
+      if (!response.ok) throw new Error('Failed to fetch certification');
+      const certification = await response.json();
+
+      if (!certification.questions) {
+        setQuestions([]);
+        return;
       }
-      const data = await response.json();
-      setQuestions(data);
+
+      // 年度とカテゴリーの一覧を収集
+      const yearSet = new Set<string>();
+      const categorySet = new Set<string>();
+      certification.questions.forEach((q: Question) => {
+        if (q.year) yearSet.add(q.year);
+        if (q.category) categorySet.add(q.category);
+      });
+
+      setYears(yearSet);
+      setCategories(categorySet);
+      setQuestions(certification.questions);
+      // 初期状態では問題を表示しない
+      setFilteredQuestions([]);
     } catch (error) {
       console.error('Error fetching questions:', error);
-      setQuestions([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCreateQuestion = async (data: Omit<Question, 'id'>) => {
-    try {
-      const response = await fetch(`/api/certifications/${certificationId}/questions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+  const filterQuestions = () => {
+    let filtered = [...questions];
 
-      if (!response.ok) throw new Error('Failed to create question');
-      
-      setIsCreateModalOpen(false);
-      fetchQuestions();
-    } catch (error) {
-      console.error('Error creating question:', error);
+    // キーワード検索
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(q => 
+        q.question.toLowerCase().includes(query) ||
+        q.options.some(opt => opt.toLowerCase().includes(query)) ||
+        q.explanation.toLowerCase().includes(query)
+      );
     }
+
+    // 年度フィルター
+    if (selectedYear) {
+      filtered = filtered.filter(q => q.year === selectedYear);
+    }
+
+    // カテゴリーフィルター
+    if (selectedCategory) {
+      filtered = filtered.filter(q => q.category === selectedCategory);
+    }
+
+    setFilteredQuestions(filtered);
   };
 
-  const handleEditQuestion = async (data: Question) => {
-    try {
-      const response = await fetch(`/api/certifications/${certificationId}/questions/${data.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) throw new Error('Failed to update question');
-      
-      setIsEditModalOpen(false);
-      setSelectedQuestion(null);
-      fetchQuestions();
-    } catch (error) {
-      console.error('Error updating question:', error);
-    }
-  };
-
-  const handleDeleteQuestion = async (questionId: string) => {
-    if (!confirm('この問題を削除してもよろしいですか？')) return;
-
-    try {
-      const response = await fetch(`/api/certifications/${certificationId}/questions/${questionId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete question');
-      
-      fetchQuestions();
-    } catch (error) {
-      console.error('Error deleting question:', error);
-    }
+  const highlightText = (text: string) => {
+    if (!searchQuery) return text;
+    const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === searchQuery.toLowerCase() ? 
+        <span key={i} className="bg-yellow-200">{part}</span> : 
+        part
+    );
   };
 
   if (isLoading) {
@@ -119,105 +125,179 @@ export default function QuestionsPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Button
-            onClick={() => router.push('/admin/certifications')}
+            onClick={() => router.push(`/admin/certifications/${certificationId}`)}
             variant="outline"
-            className="mb-4"
           >
             ← 戻る
           </Button>
-          <h1 className="text-2xl font-bold">総合問題管理</h1>
+          <h1 className="text-2xl font-bold">問題管理</h1>
         </div>
         <Button onClick={() => setIsCreateModalOpen(true)}>
           新規問題作成
         </Button>
       </div>
 
-      {questions.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">問題がありません</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {questions.map((question, index) => (
-            <div
-              key={question.id}
-              className="p-6 border rounded-lg bg-white shadow-sm hover:bg-gray-50 transition-colors duration-200"
+      {/* 検索フィルター */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* キーワード検索 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              キーワード検索
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="問題文、選択肢、解説を検索"
+              className="w-full px-3 py-2 border rounded-md"
+            />
+          </div>
+
+          {/* 年度フィルター */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              年度
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md"
             >
-              <div className="flex items-center justify-between mb-4">
+              <option value="">すべて</option>
+              {Array.from(years).sort().map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* カテゴリーフィルター */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              カテゴリー
+            </label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full px-3 py-2 border rounded-md"
+            >
+              <option value="">すべて</option>
+              {Array.from(categories).sort().map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 問題一覧 */}
+      <div className="space-y-6">
+        {!searchQuery && !selectedYear && !selectedCategory ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <p className="text-gray-500">検索条件を入力してください</p>
+          </div>
+        ) : filteredQuestions.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <p className="text-gray-500">該当する問題が見つかりません</p>
+          </div>
+        ) : (
+          filteredQuestions.map((question) => (
+            <div key={question.id} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-semibold text-gray-900">問題 {index + 1}</h2>
-                  <div className="flex gap-2">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                      {question.year}
-                    </span>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                      {question.category}
-                    </span>
-                  </div>
+                  <span className="text-sm text-gray-500">#{question.questionNumber}</span>
+                  <span className="text-sm text-gray-500">{question.year}</span>
+                  <span className="text-sm text-gray-500">{question.category}</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       setSelectedQuestion(question);
                       setIsEditModalOpen(true);
                     }}
-                    variant="outline"
-                    size="sm"
                   >
                     編集
                   </Button>
-                  <Button
-                    onClick={() => handleDeleteQuestion(question.id)}
-                    variant="destructive"
-                    size="sm"
-                  >
-                    削除
-                  </Button>
+                  <div className="text-sm text-gray-500">
+                    作成日: {new Date(question.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
-              <div className="prose max-w-none">
-                <div className="text-gray-700 whitespace-pre-wrap mb-4" dangerouslySetInnerHTML={{ __html: question.question }} />
-                <div className="pl-4">
-                  {question.options.map((option, optIndex) => (
-                    <div
-                      key={optIndex}
-                      className={`flex items-center gap-2 py-1 ${
-                        question.correctAnswers.includes(optIndex)
-                          ? 'text-green-700 font-medium'
-                          : 'text-gray-600'
-                      }`}
-                    >
-                      <span className="w-6 h-6 flex items-center justify-center rounded-full border border-current text-sm">
-                        {optIndex + 1}
-                      </span>
-                      <span>{option}</span>
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                <p className="text-lg font-medium">{highlightText(question.question)}</p>
+                <div className="space-y-2">
+                  {question.options.map((option, index) => {
+                    const letter = String.fromCharCode(65 + index);
+                    const isCorrect = question.correctAnswers.includes(index);
+                    return (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-md ${
+                          isCorrect ? 'bg-green-50 border border-green-200' : 'bg-gray-50'
+                        }`}
+                      >
+                        <span className="font-semibold mr-2">{letter}.</span>
+                        <span>{highlightText(option)}</span>
+                        {isCorrect && (
+                          <span className="ml-2 text-green-600">✓</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="bg-gray-50 rounded-md p-4">
+                  <p className="font-medium text-gray-700 mb-2">解説:</p>
+                  <p className="text-gray-600">{highlightText(question.explanation)}</p>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
       <CreateQuestionModal
+        certificationId={certificationId}
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSave={handleCreateQuestion}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          fetchQuestions();
+        }}
       />
 
       {selectedQuestion && (
         <EditQuestionModal
+          question={selectedQuestion}
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
             setSelectedQuestion(null);
+            fetchQuestions();
           }}
-          onSave={handleEditQuestion}
-          question={selectedQuestion}
+          onSave={async (updatedQuestion) => {
+            try {
+              const response = await fetch(`/api/certifications/questions/${updatedQuestion.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedQuestion),
+              });
+
+              if (!response.ok) throw new Error('Failed to update question');
+
+              setIsEditModalOpen(false);
+              setSelectedQuestion(null);
+              fetchQuestions();
+            } catch (error) {
+              console.error('Error updating question:', error);
+              alert('問題の更新に失敗しました');
+            }
+          }}
         />
       )}
     </div>

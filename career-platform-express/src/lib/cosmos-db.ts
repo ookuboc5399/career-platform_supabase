@@ -16,8 +16,6 @@ export let programmingProgressContainer: Container;
 export let certificationsContainer: Container;
 export let certificationChaptersContainer: Container;
 export let certificationProgressContainer: Container;
-export let certificationQuestionsContainer: Container;
-export let certificationQuestionsProgressContainer: Container;
 
 // データベースとコンテナの初期化
 export async function initializeDatabase() {
@@ -66,14 +64,6 @@ export async function initializeDatabase() {
       db.containers.createIfNotExists({
         id: 'certification-progress',
         partitionKey: '/partitionKey'
-      }),
-      db.containers.createIfNotExists({
-        id: 'certification-questions',
-        partitionKey: '/certificationId'
-      }),
-      db.containers.createIfNotExists({
-        id: 'certification-questions-progress',
-        partitionKey: '/certificationId'
       })
     ]);
 
@@ -84,8 +74,6 @@ export async function initializeDatabase() {
     certificationsContainer = containers[3].container;
     certificationChaptersContainer = containers[4].container;
     certificationProgressContainer = containers[5].container;
-    certificationQuestionsContainer = containers[6].container;
-    certificationQuestionsProgressContainer = containers[7].container;
 
     console.log('Database and containers initialized successfully');
   } catch (error) {
@@ -244,20 +232,6 @@ export interface CertificationProgress {
   _ts?: number;
 }
 
-export interface CertificationQuestionProgress {
-  id: string;
-  certificationId: string;
-  questionId: string;
-  selectedAnswer: number;
-  isCorrect: boolean;
-  timestamp: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
 // データベース操作関数
 export async function getUniversities() {
   if (!universitiesContainer) await initializeDatabase();
@@ -352,24 +326,8 @@ export async function getCertifications() {
 
 export async function getCertification(id: string) {
   if (!certificationsContainer) await initializeDatabase();
-  console.log('Fetching certification from CosmosDB:', id);
   const { resource } = await certificationsContainer.item(id, id).read();
-  console.log('CosmosDB response:', resource);
-
-  // 問題を取得
-  if (!certificationQuestionsContainer) await initializeDatabase();
-  const { resources: questions } = await certificationQuestionsContainer.items
-    .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
-      parameters: [{ name: '@certificationId', value: id }]
-    })
-    .fetchAll();
-  console.log('Questions from CosmosDB:', questions);
-
-  return {
-    ...resource,
-    questions
-  } as Certification | undefined;
+  return resource as Certification | undefined;
 }
 
 export async function createCertification(data: CreateCertificationInput) {
@@ -409,9 +367,9 @@ export async function getCertificationChapters(certificationId: string) {
   return resources as CertificationChapter[];
 }
 
-export async function getCertificationChapter(id: string, certificationId: string) {
+export async function getCertificationChapter(id: string) {
   if (!certificationChaptersContainer) await initializeDatabase();
-  const { resource } = await certificationChaptersContainer.item(id, certificationId).read();
+  const { resource } = await certificationChaptersContainer.item(id, id).read();
   return resource as CertificationChapter | undefined;
 }
 
@@ -480,25 +438,6 @@ export async function updateCertificationProgress(userId: string, certificationI
     });
     return resource as CertificationProgress;
   }
-}
-
-// 問題の進捗関連の操作関数
-export async function getCertificationQuestionProgress(certificationId: string) {
-  if (!certificationQuestionsProgressContainer) await initializeDatabase();
-  const { resources } = await certificationQuestionsProgressContainer.items
-    .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
-      parameters: [{ name: '@certificationId', value: certificationId }]
-    })
-    .fetchAll();
-  return resources as CertificationQuestionProgress[];
-}
-
-export async function createCertificationQuestionProgress(data: Omit<CertificationQuestionProgress, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) {
-  if (!certificationQuestionsProgressContainer) await initializeDatabase();
-  const id = Math.random().toString(36).substring(2, 15);
-  const { resource } = await certificationQuestionsProgressContainer.items.create({ ...data, id });
-  return resource as CertificationQuestionProgress;
 }
 
 // アプリケーション起動時にデータベースを初期化
