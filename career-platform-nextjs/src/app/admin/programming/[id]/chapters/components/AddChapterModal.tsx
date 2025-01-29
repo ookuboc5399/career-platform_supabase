@@ -1,15 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-
-interface Exercise {
-  title: string;
-  description: string;
-  testCases: {
-    input: string;
-    expectedOutput: string;
-  }[];
-}
+import { Button } from '@/components/ui/button';
+import { VideoUploader } from '@/components/ui/VideoUploader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface AddChapterModalProps {
   isOpen: boolean;
@@ -18,259 +12,323 @@ interface AddChapterModalProps {
 }
 
 export default function AddChapterModal({ isOpen, onClose, languageId }: AddChapterModalProps) {
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    videoUrl: '',
-    duration: '',
-    status: 'draft' as 'draft' | 'published',
-  });
-
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [currentExercise, setCurrentExercise] = useState<Exercise>({
-    title: '',
-    description: '',
-    testCases: [{ input: '', expectedOutput: '' }],
-  });
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [duration, setDuration] = useState('');
+  const [exercises, setExercises] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    testCases: {
+      input: string;
+      expectedOutput: string;
+    }[];
+  }[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: APIを呼び出してチャプターを保存
-    onClose();
-  };
 
-  const addExercise = () => {
-    if (currentExercise.title && currentExercise.description) {
-      setExercises([...exercises, currentExercise]);
-      setCurrentExercise({
-        title: '',
-        description: '',
-        testCases: [{ input: '', expectedOutput: '' }],
+    try {
+      const response = await fetch('/api/programming/chapters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          languageId,
+          title,
+          description,
+          videoUrl,
+          duration,
+          status: 'draft',
+          exercises,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create chapter');
+      }
+
+      setTitle('');
+      setDescription('');
+      setVideoUrl('');
+      setDuration('');
+      setExercises([]);
+      onClose();
+    } catch (error) {
+      console.error('Error creating chapter:', error);
     }
   };
 
-  const addTestCase = () => {
-    setCurrentExercise({
-      ...currentExercise,
-      testCases: [...currentExercise.testCases, { input: '', expectedOutput: '' }],
-    });
+  const addExercise = () => {
+    setExercises([
+      ...exercises,
+      {
+        id: Math.random().toString(36).substring(2, 15),
+        title: '',
+        description: '',
+        testCases: [
+          {
+            input: '',
+            expectedOutput: '',
+          },
+        ],
+      },
+    ]);
   };
 
-  if (!isOpen) return null;
+  const removeExercise = (index: number) => {
+    setExercises(exercises.filter((_, i) => i !== index));
+  };
+
+  const updateExercise = (index: number, field: string, value: string) => {
+    const newExercises = [...exercises];
+    (newExercises[index] as any)[field] = value;
+    setExercises(newExercises);
+  };
+
+  const addTestCase = (exerciseIndex: number) => {
+    const newExercises = [...exercises];
+    newExercises[exerciseIndex].testCases.push({
+      input: '',
+      expectedOutput: '',
+    });
+    setExercises(newExercises);
+  };
+
+  const removeTestCase = (exerciseIndex: number, testCaseIndex: number) => {
+    const newExercises = [...exercises];
+    newExercises[exerciseIndex].testCases = newExercises[exerciseIndex].testCases.filter(
+      (_, i) => i !== testCaseIndex
+    );
+    setExercises(newExercises);
+  };
+
+  const updateTestCase = (
+    exerciseIndex: number,
+    testCaseIndex: number,
+    field: string,
+    value: string
+  ) => {
+    const newExercises = [...exercises];
+    (newExercises[exerciseIndex].testCases[testCaseIndex] as any)[field] = value;
+    setExercises(newExercises);
+  };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-lg bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-gray-900">
-            新規チャプター追加
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <span className="sr-only">Close</span>
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogHeader>
+          <DialogTitle>新規チャプター追加</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 基本情報 */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                タイトル
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                説明
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  rows={3}
-                  required
-                />
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                動画URL
-                <input
-                  type="url"
-                  value={form.videoUrl}
-                  onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  所要時間
-                  <input
-                    type="text"
-                    value={form.duration}
-                    onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="例: 30分"
-                    required
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  ステータス
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as 'draft' | 'published' })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="draft">下書き</option>
-                    <option value="published">公開</option>
-                  </select>
-                </label>
-              </div>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              タイトル
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
           </div>
 
-          {/* 演習問題 */}
-          <div className="border-t pt-6">
-            <h4 className="text-lg font-medium text-gray-900 mb-4">演習問題</h4>
-            
-            {/* 既存の演習問題リスト */}
-            {exercises.length > 0 && (
-              <div className="mb-6 space-y-4">
-                {exercises.map((exercise, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <h5 className="font-medium">{exercise.title}</h5>
-                    <p className="text-sm text-gray-600">{exercise.description}</p>
-                    <div className="mt-2 text-sm text-gray-500">
-                      テストケース: {exercise.testCases.length}件
-                    </div>
-                  </div>
-                ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              説明
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              動画
+            </label>
+            <VideoUploader 
+              type="programming" 
+              onUploadComplete={(url, duration) => {
+                setVideoUrl(url);
+                setDuration(duration);
+              }} 
+            />
+            {videoUrl && (
+              <div className="mt-2 text-sm text-gray-600">
+                現在の動画: {videoUrl}
               </div>
             )}
+          </div>
 
-            {/* 新規演習問題フォーム */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    タイトル
-                    <input
-                      type="text"
-                      value={currentExercise.title}
-                      onChange={(e) => setCurrentExercise({ ...currentExercise, title: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </label>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    問題文
-                    <textarea
-                      value={currentExercise.description}
-                      onChange={(e) => setCurrentExercise({ ...currentExercise, description: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      rows={2}
-                    />
-                  </label>
-                </div>
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                演習問題
+              </label>
+              <Button
+                type="button"
+                onClick={addExercise}
+                variant="outline"
+              >
+                問題を追加
+              </Button>
+            </div>
 
-                {/* テストケース */}
-                <div className="space-y-4">
-                  {currentExercise.testCases.map((testCase, index) => (
-                    <div key={index} className="grid grid-cols-2 gap-4">
-                      <div>
+            <div className="space-y-6">
+              {exercises.map((exercise, exerciseIndex) => (
+                <div key={exercise.id} className="p-4 border rounded-lg">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-medium">問題 {exerciseIndex + 1}</h3>
+                    <Button
+                      type="button"
+                      onClick={() => removeExercise(exerciseIndex)}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      削除
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        タイトル
+                      </label>
+                      <input
+                        type="text"
+                        value={exercise.title}
+                        onChange={(e) =>
+                          updateExercise(exerciseIndex, 'title', e.target.value)
+                        }
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        問題文
+                      </label>
+                      <textarea
+                        value={exercise.description}
+                        onChange={(e) =>
+                          updateExercise(exerciseIndex, 'description', e.target.value)
+                        }
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-medium text-gray-700">
-                          入力
-                          <input
-                            type="text"
-                            value={testCase.input}
-                            onChange={(e) => {
-                              const newTestCases = [...currentExercise.testCases];
-                              newTestCases[index].input = e.target.value;
-                              setCurrentExercise({ ...currentExercise, testCases: newTestCases });
-                            }}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          />
+                          テストケース
                         </label>
+                        <Button
+                          type="button"
+                          onClick={() => addTestCase(exerciseIndex)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          テストケースを追加
+                        </Button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          期待される出力
-                          <input
-                            type="text"
-                            value={testCase.expectedOutput}
-                            onChange={(e) => {
-                              const newTestCases = [...currentExercise.testCases];
-                              newTestCases[index].expectedOutput = e.target.value;
-                              setCurrentExercise({ ...currentExercise, testCases: newTestCases });
-                            }}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          />
-                        </label>
+
+                      <div className="space-y-4">
+                        {exercise.testCases.map((testCase, testCaseIndex) => (
+                          <div
+                            key={testCaseIndex}
+                            className="p-4 bg-gray-50 rounded-lg"
+                          >
+                            <div className="flex justify-between items-center mb-2">
+                              <h4 className="text-sm font-medium">
+                                テストケース {testCaseIndex + 1}
+                              </h4>
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  removeTestCase(exerciseIndex, testCaseIndex)
+                                }
+                                variant="destructive"
+                                size="sm"
+                              >
+                                削除
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div>
+                                <label className="block text-sm text-gray-700 mb-1">
+                                  入力
+                                </label>
+                                <input
+                                  type="text"
+                                  value={testCase.input}
+                                  onChange={(e) =>
+                                    updateTestCase(
+                                      exerciseIndex,
+                                      testCaseIndex,
+                                      'input',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm text-gray-700 mb-1">
+                                  期待される出力
+                                </label>
+                                <input
+                                  type="text"
+                                  value={testCase.expectedOutput}
+                                  onChange={(e) =>
+                                    updateTestCase(
+                                      exerciseIndex,
+                                      testCaseIndex,
+                                      'expectedOutput',
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-
-                <div className="flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    onClick={addTestCase}
-                    className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    + テストケース追加
-                  </button>
-                  <button
-                    type="button"
-                    onClick={addExercise}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    この演習問題を追加
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
+          <div className="flex justify-end gap-4">
+            <Button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              variant="outline"
             >
               キャンセル
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               保存
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

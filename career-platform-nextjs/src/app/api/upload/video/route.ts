@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadFile, CONTAINERS } from '@/lib/storage';
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get('video') as File;
+    const type = formData.get('type') as string; // 'certification' or 'programming'
     
     if (!file) {
       return NextResponse.json(
@@ -32,24 +31,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // アップロードディレクトリの作成
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'videos');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      console.error('Failed to create upload directory:', error);
-    }
+    // ファイルをArrayBufferに変換
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // ファイル名の生成とファイルの保存
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fileName = `${uuidv4()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-    const filePath = join(uploadDir, fileName);
+    // コンテナの選択
+    const containerName = type === 'certification' ? 
+      CONTAINERS.CERTIFICATION_VIDEOS : 
+      CONTAINERS.PROGRAMMING_VIDEOS;
 
-    await writeFile(filePath, buffer);
-
-    // 公開URLの生成
-    const url = `/uploads/videos/${fileName}`;
+    // Blobストレージにアップロード
+    const url = await uploadFile(
+      containerName,
+      buffer,
+      file.name,
+      file.type
+    );
 
     return NextResponse.json({ url });
   } catch (error) {

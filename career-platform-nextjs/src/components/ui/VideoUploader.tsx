@@ -1,102 +1,75 @@
-import { useState, useRef } from 'react';
+'use client';
+
+import { useState } from 'react';
 import { Button } from './button';
 
-interface VideoUploaderProps {
-  onUploadComplete: (url: string) => void;
+export interface VideoUploaderProps {
+  onUpload: (url: string) => void | Promise<void>;
 }
 
-export function VideoUploader({ onUploadComplete }: VideoUploaderProps) {
+export function VideoUploader({ onUpload }: VideoUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // 動画ファイルの検証
-    if (!file.type.startsWith('video/')) {
-      setError('動画ファイルを選択してください');
-      return;
-    }
-
-    // ファイルサイズの検証（例: 500MB以下）
-    const maxSize = 500 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError('ファイルサイズは500MB以下にしてください');
-      return;
-    }
 
     try {
       setIsUploading(true);
       setError(null);
 
-      // FormDataの作成
       const formData = new FormData();
-      formData.append('video', file);
+      formData.append('file', file);
 
-      // アップロードリクエスト
       const response = await fetch('/api/upload/video', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('アップロードに失敗しました');
+        throw new Error('Failed to upload video');
       }
 
       const data = await response.json();
-      onUploadComplete(data.url);
+      await onUpload(data.url);
     } catch (error) {
-      console.error('Upload error:', error);
-      setError('アップロードに失敗しました');
+      console.error('Error uploading video:', error);
+      setError('Failed to upload video');
     } finally {
       setIsUploading(false);
-      setProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div>
         <input
           type="file"
           accept="video/*"
-          onChange={handleFileSelect}
+          onChange={handleFileChange}
           className="hidden"
-          ref={fileInputRef}
-        />
-        <Button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          variant="outline"
+          id="video-upload"
           disabled={isUploading}
-        >
-          動画を選択
-        </Button>
-        {isUploading && (
-          <div className="text-sm text-gray-600">
-            アップロード中... {progress}%
-          </div>
-        )}
+        />
+        <label htmlFor="video-upload">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={isUploading}
+            asChild
+          >
+            <span>
+              {isUploading ? 'アップロード中...' : '動画を選択'}
+            </span>
+          </Button>
+        </label>
       </div>
 
       {error && (
-        <div className="text-sm text-red-600">
+        <div className="text-red-500 text-sm">
           {error}
-        </div>
-      )}
-
-      {isUploading && (
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div
-            className="bg-blue-600 h-2.5 rounded-full"
-            style={{ width: `${progress}%` }}
-          />
         </div>
       )}
     </div>

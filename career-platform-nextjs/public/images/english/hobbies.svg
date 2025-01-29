@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景の円 -->
+  <circle cx="100" cy="100" r="90" fill="#4F46E5" opacity="0.1"/>
+  
+  <!-- 本 -->
+  <path d="M50 60H90C95 60 100 65 100 70V130C100 125 95 120 90 120H50V60Z" fill="#4F46E5"/>
+  <path d="M150 60H110C105 60 100 65 100 70V130C100 125 105 120 110 120H150V60Z" fill="#4F46E5"/>
+  <path d="M50 120H90C95 120 100 125 100 130V130C100 125 95 120 90 120H50V120Z" fill="#4F46E5" opacity="0.5"/>
+  <path d="M150 120H110C105 120 100 125 100 130V130C100 125 105 120 110 120H150V120Z" fill="#4F46E5" opacity="0.5"/>
+  
+  <!-- 音符 -->
+  <path d="M140 40C140 35 135 30 130 30C125 30 120 35 120 40C120 45 125 50 130 50C135 50 140 45 140 40Z" fill="#4F46E5"/>
+  <path d="M130 30V10M130 10L140 15" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- カメラ -->
+  <rect x="60" y="30" width="30" height="20" rx="5" fill="#4F46E5"/>
+  <circle cx="75" cy="40" r="5" fill="white"/>
+</svg>

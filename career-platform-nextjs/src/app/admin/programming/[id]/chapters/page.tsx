@@ -1,66 +1,80 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, use } from 'react';
+import { ProgrammingChapter } from '@/lib/cosmos-db';
 import AddChapterModal from './components/AddChapterModal';
+import EditChapterModal from './components/EditChapterModal';
 
-interface Chapter {
-  id: string;
-  title: string;
-  description: string;
-  duration: string;
-  order: number;
-  exerciseCount: number;
-  status: 'draft' | 'published';
-}
+export default function ChaptersPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const [chapters, setChapters] = useState<ProgrammingChapter[]>([]);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedChapter, setSelectedChapter] = useState<ProgrammingChapter | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-const MOCK_CHAPTERS: Chapter[] = [
-  {
-    id: '1',
-    title: '環境構築',
-    description: '開発環境のセットアップと基本的なツールの使い方',
-    duration: '30分',
-    order: 1,
-    exerciseCount: 2,
-    status: 'published',
-  },
-  {
-    id: '2',
-    title: '基本構文',
-    description: '変数、データ型、制御構文について学ぶ',
-    duration: '45分',
-    order: 2,
-    exerciseCount: 5,
-    status: 'published',
-  },
-  {
-    id: '3',
-    title: '関数とモジュール',
-    description: '関数の定義と使用方法、モジュールの概念',
-    duration: '60分',
-    order: 3,
-    exerciseCount: 4,
-    status: 'draft',
-  },
-];
+  const fetchChapters = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/programming/chapters?languageId=${resolvedParams.id}`);
+      if (!response.ok) throw new Error('Failed to fetch chapters');
+      const data = await response.json();
+      setChapters(data);
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-export default function ChaptersPage({ params }: { params: { id: string } }) {
-  const [chapters, setChapters] = useState(MOCK_CHAPTERS);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  useEffect(() => {
+    fetchChapters();
+  }, [resolvedParams.id]);
 
-  const moveChapter = (fromIndex: number, toIndex: number) => {
-    const newChapters = [...chapters];
-    const [movedChapter] = newChapters.splice(fromIndex, 1);
-    newChapters.splice(toIndex, 0, movedChapter);
+  const moveChapter = async (fromIndex: number, toIndex: number) => {
+    const updatedChapters = [...chapters];
+    const [movedChapter] = updatedChapters.splice(fromIndex, 1);
+    updatedChapters.splice(toIndex, 0, movedChapter);
 
     // Update order property
-    const updatedChapters = newChapters.map((chapter, index) => ({
+    const reorderedChapters = updatedChapters.map((chapter, index) => ({
       ...chapter,
       order: index + 1,
     }));
 
-    setChapters(updatedChapters);
+    setChapters(reorderedChapters);
+
+    try {
+      const response = await fetch('/api/programming/chapters/order', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          languageId: resolvedParams.id,
+          chapters: reorderedChapters.map(chapter => ({
+            id: chapter.id,
+            order: chapter.order,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update chapter order');
+      }
+    } catch (error) {
+      console.error('Error updating chapter order:', error);
+      fetchChapters();
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -68,12 +82,12 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
         <div>
           <h1 className="text-2xl font-bold">チャプター管理</h1>
           <p className="text-gray-600 mt-1">
-            {params.id.charAt(0).toUpperCase() + params.id.slice(1)}の学習コンテンツ
+            {resolvedParams.id.charAt(0).toUpperCase() + resolvedParams.id.slice(1)}の学習コンテンツ
           </p>
         </div>
         <button
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsAddModalOpen(true)}
         >
           新規チャプター追加
         </button>
@@ -82,81 +96,148 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <div className="space-y-4">
-            {chapters.map((chapter, index) => (
-              <div
-                key={chapter.id}
-                className="border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <div className="p-4">
-                  <div className="flex items-start">
-                    <div className="flex-grow">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-medium">
-                          {chapter.order}. {chapter.title}
-                        </h3>
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            chapter.status === 'published'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {chapter.status === 'published' ? '公開中' : '下書き'}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {chapter.duration}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-gray-600 mb-4">
-                        {chapter.description}
-                      </p>
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-500">
-                          演習問題: {chapter.exerciseCount}問
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="flex space-x-2">
-                            {index > 0 && (
-                              <button
-                                onClick={() => moveChapter(index, index - 1)}
-                                className="text-gray-500 hover:text-gray-700"
-                              >
-                                ↑
-                              </button>
-                            )}
-                            {index < chapters.length - 1 && (
-                              <button
-                                onClick={() => moveChapter(index, index + 1)}
-                                className="text-gray-500 hover:text-gray-700"
-                              >
-                                ↓
-                              </button>
-                            )}
+            {chapters.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                チャプターがありません
+              </div>
+            ) : (
+              chapters.map((chapter, index) => (
+                <div
+                  key={chapter.id}
+                  className="border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start">
+                      <div className="flex-grow">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-lg font-medium">
+                            {chapter.order}. {chapter.title}
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              chapter.status === 'published'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {chapter.status === 'published' ? '公開中' : '下書き'}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {chapter.duration}
+                            </span>
                           </div>
-                          <div className="flex space-x-2">
-                            <button className="text-blue-600 hover:text-blue-800">
-                              編集
-                            </button>
-                            <button className="text-red-600 hover:text-red-800">
-                              削除
-                            </button>
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                          {chapter.description}
+                        </p>
+                        <div className="flex justify-between items-center">
+                          <div className="text-sm text-gray-500">
+                            演習問題: {chapter.exercises?.length || 0}問
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <div className="flex space-x-2">
+                              {index > 0 && (
+                                <button
+                                  onClick={() => moveChapter(index, index - 1)}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  ↑
+                                </button>
+                              )}
+                              {index < chapters.length - 1 && (
+                                <button
+                                  onClick={() => moveChapter(index, index + 1)}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  ↓
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex space-x-2">
+                              <button 
+                                className="text-blue-600 hover:text-blue-800"
+                                onClick={() => {
+                                  setSelectedChapter(chapter);
+                                  setIsEditModalOpen(true);
+                                }}
+                              >
+                                編集
+                              </button>
+                              <button 
+                                className="text-red-600 hover:text-red-800"
+                                onClick={async () => {
+                                  if (window.confirm('このチャプターを削除してもよろしいですか？')) {
+                                    try {
+                                      const response = await fetch(
+                                        `/api/programming/chapters/${chapter.id}?languageId=${chapter.languageId}`,
+                                        { method: 'DELETE' }
+                                      );
+                                      if (!response.ok) throw new Error('Failed to delete chapter');
+                                      fetchChapters();
+                                    } catch (error) {
+                                      console.error('Error deleting chapter:', error);
+                                    }
+                                  }
+                                }}
+                              >
+                                削除
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
 
       <AddChapterModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        languageId={params.id}
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          fetchChapters();
+        }}
+        languageId={resolvedParams.id}
       />
+
+      {selectedChapter && (
+        <EditChapterModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedChapter(null);
+            fetchChapters();
+          }}
+          onSave={async (data) => {
+            try {
+              const response = await fetch(`/api/programming/chapters/${selectedChapter.id}?languageId=${resolvedParams.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ...data,
+                  updatedAt: new Date().toISOString(),
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to update chapter');
+              }
+
+              setIsEditModalOpen(false);
+              setSelectedChapter(null);
+              fetchChapters();
+            } catch (error) {
+              console.error('Error updating chapter:', error);
+            }
+          }}
+          chapter={selectedChapter}
+        />
+      )}
     </div>
   );
 }

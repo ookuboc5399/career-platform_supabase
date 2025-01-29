@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景の円 -->
+  <circle cx="100" cy="100" r="90" fill="#4F46E5" opacity="0.1"/>
+  
+  <!-- 家のアイコン -->
+  <path d="M60 100V150H140V100L100 70L60 100Z" fill="#4F46E5"/>
+  <rect x="90" y="120" width="20" height="30" fill="white"/>
+  
+  <!-- 太陽 -->
+  <circle cx="160" cy="40" r="15" fill="#4F46E5"/>
+  <path d="M160 15L160 25M160 55L160 65M185 40L175 40M145 40L135 40M177 23L170 30M150 50L143 57M177 57L170 50M150 30L143 23" stroke="#4F46E5" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- 時計 -->
+  <circle cx="50" cy="40" r="15" fill="#4F46E5"/>
+  <path d="M50 30L50 40L57 40" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { writeFile, unlink } from 'fs/promises';
+import path from 'path';
+import { mkdir } from 'fs/promises';
 
 const execAsync = promisify(exec);
 
@@ -11,139 +12,74 @@ interface TestCase {
   expectedOutput: string;
 }
 
-interface TestResult {
-  input: string;
-  expectedOutput: string;
-  actualOutput: string;
-  passed: boolean;
-}
-
-interface CodeRunResult {
-  success: boolean;
-  testResults: TestResult[];
-  error?: string;
-}
-
-function wrapCodeWithTestCase(code: string, input: string, language: string): string {
-  switch (language) {
-    case 'python':
-      return `
-import sys
-def get_input():
-    return """${input}"""
-# Override input function
-input = lambda: get_input()
-${code}
-`;
-
-    case 'javascript':
-      return `
-const input = () => \`${input}\`;
-${code}
-`;
-
-    default:
-      throw new Error('Unsupported language');
-  }
-}
-
 export async function POST(request: NextRequest) {
+  const tempDir = path.join(process.cwd(), 'temp');
+  let tempFile: string | null = null;
+  let output = '';
+
   try {
+    // 一時ディレクトリの作成
+    await mkdir(tempDir, { recursive: true });
+
     const body = await request.json();
-    const { code, language, testCases } = body;
+    const { code, language, testCases } = body as { code: string; language: string; testCases: TestCase[] };
 
-    if (!code || !language || !testCases) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!code || !language) {
+      return NextResponse.json({ error: 'Code and language are required' }, { status: 400 });
     }
 
-    // 一時ファイルのパスを生成
-    const timestamp = Date.now();
-    const tempDir = path.join(process.cwd(), 'temp');
-    await fs.mkdir(tempDir, { recursive: true });
+    // 一時的なPythonファイルを作成
+    tempFile = path.join(tempDir, `${Date.now()}.py`);
+    await writeFile(tempFile, code);
 
-    let sourceFile: string;
-    let command: string;
+    // テストケースごとに実行
+    for (const testCase of testCases) {
+      // 入力を一時ファイルに書き込む
+      const inputFile = path.join(tempDir, `input_${Date.now()}.txt`);
+      await writeFile(inputFile, testCase.input);
 
-    switch (language) {
-      case 'python':
-        sourceFile = path.join(tempDir, `code_${timestamp}.py`);
-        command = 'python';
-        break;
-
-      case 'javascript':
-        sourceFile = path.join(tempDir, `code_${timestamp}.js`);
-        command = 'node';
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: 'Unsupported language' },
-          { status: 400 }
+      try {
+        const { stdout, stderr } = await execAsync(
+          `python3 ${tempFile} < ${inputFile}`,
+          { timeout: 5000 } // 5秒のタイムアウト
         );
-    }
-
-    // テストケースを実行
-    const testResults: TestResult[] = [];
-    let allTestsPassed = true;
-
-    try {
-      for (const testCase of testCases) {
-        // テストケースごとにコードを生成
-        const wrappedCode = wrapCodeWithTestCase(code, testCase.input, language);
-        await fs.writeFile(sourceFile, wrappedCode);
-
-        const { stdout, stderr } = await execAsync(`${command} ${sourceFile}`, {
-          timeout: 5000, // 5秒のタイムアウト
-        });
-
-        const actualOutput = stdout.trim();
-        const passed = actualOutput === testCase.expectedOutput.trim();
-        
-        if (!passed) {
-          allTestsPassed = false;
-        }
-
-        testResults.push({
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          actualOutput,
-          passed,
-        });
 
         if (stderr) {
-          throw new Error(stderr);
+          output += `エラー: ${stderr}\n`;
+          continue;
         }
+
+        const actualOutput = stdout.trim();
+        const expectedOutput = testCase.expectedOutput.trim();
+        
+        if (actualOutput === expectedOutput) {
+          output += `✅ テストケース通過: 入力="${testCase.input}"\n`;
+          output += `期待される出力: ${expectedOutput}\n`;
+          output += `実際の出力: ${actualOutput}\n\n`;
+        } else {
+          output += `❌ テストケース失敗: 入力="${testCase.input}"\n`;
+          output += `期待される出力: ${expectedOutput}\n`;
+          output += `実際の出力: ${actualOutput}\n\n`;
+        }
+      } catch (error) {
+        output += `実行エラー: ${error instanceof Error ? error.message : '不明なエラー'}\n`;
+      } finally {
+        // 入力ファイルを削除
+        await unlink(inputFile).catch(() => {});
       }
-
-      // 一時ファイルを削除
-      await fs.unlink(sourceFile);
-
-      const result: CodeRunResult = {
-        success: allTestsPassed,
-        testResults,
-      };
-
-      return NextResponse.json(result);
-    } catch (error) {
-      // エラーが発生した場合も一時ファイルを削除
-      await fs.unlink(sourceFile).catch(() => {});
-
-      const result: CodeRunResult = {
-        success: false,
-        testResults,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      };
-
-      return NextResponse.json(result);
     }
+
+    return NextResponse.json({ output });
   } catch (error) {
     console.error('Error running code:', error);
     return NextResponse.json(
-      { error: 'Failed to run code' },
+      { error: error instanceof Error ? error.message : 'Failed to run code' },
       { status: 500 }
     );
+  } finally {
+    // 一時ファイルを削除
+    if (tempFile) {
+      await unlink(tempFile).catch(() => {});
+    }
   }
 }

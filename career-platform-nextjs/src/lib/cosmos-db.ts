@@ -11,6 +11,7 @@ const client = new CosmosClient({
 
 let database: any;
 export let universitiesContainer: Container;
+export let programmingContainer: Container;
 export let programmingChaptersContainer: Container;
 export let programmingProgressContainer: Container;
 export let certificationsContainer: Container;
@@ -18,6 +19,10 @@ export let certificationChaptersContainer: Container;
 export let certificationProgressContainer: Container;
 export let certificationQuestionsContainer: Container;
 export let certificationQuestionsProgressContainer: Container;
+export let englishNewsContainer: Container;
+export let englishMoviesContainer: Container;
+export let englishBusinessContainer: Container;
+export let settingsContainer: Container;
 
 // データベースとコンテナの初期化
 export async function initializeDatabase() {
@@ -34,8 +39,12 @@ export async function initializeDatabase() {
         partitionKey: '/id'
       }),
       db.containers.createIfNotExists({
+        id: 'programming',
+        partitionKey: '/type'
+      }),
+      db.containers.createIfNotExists({
         id: 'programming-chapters',
-        partitionKey: '/id'
+        partitionKey: '/languageId'
       }),
       db.containers.createIfNotExists({
         id: 'programming-progress',
@@ -47,21 +56,7 @@ export async function initializeDatabase() {
       }),
       db.containers.createIfNotExists({
         id: 'certification-chapters',
-        partitionKey: '/certificationId',
-        indexingPolicy: {
-          indexingMode: 'consistent',
-          automatic: true,
-          includedPaths: [
-            {
-              path: '/*'
-            }
-          ],
-          excludedPaths: [
-            {
-              path: '/"_etag"/?'
-            }
-          ]
-        }
+        partitionKey: '/certificationId'
       }),
       db.containers.createIfNotExists({
         id: 'certification-progress',
@@ -74,18 +69,39 @@ export async function initializeDatabase() {
       db.containers.createIfNotExists({
         id: 'certification-questions-progress',
         partitionKey: '/certificationId'
+      }),
+      db.containers.createIfNotExists({
+        id: 'english-news',
+        partitionKey: '/id'
+      }),
+      db.containers.createIfNotExists({
+        id: 'english-movies',
+        partitionKey: '/id'
+      }),
+      db.containers.createIfNotExists({
+        id: 'english-business',
+        partitionKey: '/id'
+      }),
+      db.containers.createIfNotExists({
+        id: 'settings',
+        partitionKey: '/id'
       })
     ]);
 
     // コンテナの参照を設定
     universitiesContainer = containers[0].container;
-    programmingChaptersContainer = containers[1].container;
-    programmingProgressContainer = containers[2].container;
-    certificationsContainer = containers[3].container;
-    certificationChaptersContainer = containers[4].container;
-    certificationProgressContainer = containers[5].container;
-    certificationQuestionsContainer = containers[6].container;
-    certificationQuestionsProgressContainer = containers[7].container;
+    programmingContainer = containers[1].container;
+    programmingChaptersContainer = containers[2].container;
+    programmingProgressContainer = containers[3].container;
+    certificationsContainer = containers[4].container;
+    certificationChaptersContainer = containers[5].container;
+    certificationProgressContainer = containers[6].container;
+    certificationQuestionsContainer = containers[7].container;
+    certificationQuestionsProgressContainer = containers[8].container;
+    englishNewsContainer = containers[9].container;
+    englishMoviesContainer = containers[10].container;
+    englishBusinessContainer = containers[11].container;
+    settingsContainer = containers[12].container;
 
     console.log('Database and containers initialized successfully');
   } catch (error) {
@@ -94,34 +110,15 @@ export async function initializeDatabase() {
   }
 }
 
-// 型定義
-export interface University {
+// プログラミング言語関連の型定義
+export interface ProgrammingLanguage {
   id: string;
   title: string;
   description: string;
-  imageUrl: string;
-  websiteUrl: string;
-  type: 'university' | 'program';
-  location: 'japan' | 'overseas';
-  programType?: 'mba' | 'data-science';
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
+  type: 'language' | 'framework';
+  createdAt: string;
+  updatedAt: string;
 }
-
-export interface CreateUniversityInput {
-  title: string;
-  description: string;
-  imageUrl: string;
-  websiteUrl: string;
-  type: 'university' | 'program';
-  location: 'japan' | 'overseas';
-  programType?: 'mba' | 'data-science';
-}
-
-export interface UpdateUniversityInput extends Partial<CreateUniversityInput> {}
 
 export interface ProgrammingChapter {
   id: string;
@@ -132,6 +129,7 @@ export interface ProgrammingChapter {
   thumbnailUrl: string;
   duration: string;
   order: number;
+  status: 'draft' | 'published';
   exercises: {
     id: string;
     title: string;
@@ -141,365 +139,119 @@ export interface ProgrammingChapter {
       expectedOutput: string;
     }[];
   }[];
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
-export interface ProgrammingProgress {
-  id: string;
-  partitionKey: string;
-  userId: string;
-  languageId: string;
-  chapterId: string;
-  videoCompleted: boolean;
-  exercisesCompleted: string[];
-  lastAccessedAt: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
-export interface Certification {
-  id: string;
-  type: string;
-  name: string;
-  description: string;
-  imageUrl: string;
-  mainCategory: string;
-  category: string;
-  subCategory: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedStudyTime: string;
-  chapters?: CertificationChapter[];
   createdAt: string;
   updatedAt: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
 }
 
-export interface CreateCertificationInput {
-  name: string;
-  description: string;
-  imageUrl: string;
-  mainCategory: string;
-  category: string;
-  subCategory: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  estimatedStudyTime: string;
-}
-
-export interface UpdateCertificationInput extends Partial<CreateCertificationInput> {}
-
-export interface CertificationChapter {
-  id: string;
-  certificationId: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  duration: string;
-  order: number;
-  status: 'draft' | 'published';
-  content: string;
-  questions: {
-    id: string;
-    question: string;
-    choices: {
-      id: string;
-      text: string;
-    }[];
-    correctAnswer: number;
-    explanation: string;
-  }[];
-  createdAt: string;
-  updatedAt: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
-export interface CertificationProgress {
-  id: string;
-  partitionKey: string;
-  userId: string;
-  certificationId: string;
-  chapterId: string;
-  videoCompleted: boolean;
-  completedQuestions: string[];
-  lastAccessedAt: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
-export interface CertificationQuestionProgress {
-  id: string;
-  certificationId: string;
-  questionId: string;
-  selectedAnswer: number;
-  isCorrect: boolean;
-  timestamp: string;
-  _rid?: string;
-  _self?: string;
-  _etag?: string;
-  _attachments?: string;
-  _ts?: number;
-}
-
-// データベース操作関数
-export async function getUniversities() {
-  if (!universitiesContainer) await initializeDatabase();
-  const { resources } = await universitiesContainer.items
-    .query('SELECT * FROM c')
+// プログラミング言語関連の操作関数
+export async function getProgrammingLanguages() {
+  if (!programmingContainer) await initializeDatabase();
+  const { resources } = await programmingContainer.items
+    .query({
+      query: 'SELECT * FROM c WHERE c.type IN ("language", "framework")',
+    })
     .fetchAll();
-  return resources as University[];
+  return resources as ProgrammingLanguage[];
 }
 
-export async function getUniversity(id: string) {
-  if (!universitiesContainer) await initializeDatabase();
-  const { resource } = await universitiesContainer.item(id, id).read();
-  return resource as University | undefined;
-}
-
-export async function createUniversity(data: CreateUniversityInput) {
-  if (!universitiesContainer) await initializeDatabase();
-  const id = Math.random().toString(36).substring(2, 15);
-  const { resource } = await universitiesContainer.items.create({ ...data, id });
-  return resource as University;
-}
-
-export async function updateUniversity(id: string, data: UpdateUniversityInput) {
-  if (!universitiesContainer) await initializeDatabase();
-  const { resource: existingUniversity } = await universitiesContainer.item(id, id).read();
-  if (!existingUniversity) return undefined;
-
-  const { resource } = await universitiesContainer.item(id, id).replace({
-    ...existingUniversity,
+export async function createProgrammingLanguage(data: Omit<ProgrammingLanguage, 'createdAt' | 'updatedAt'>) {
+  if (!programmingContainer) await initializeDatabase();
+  const now = new Date().toISOString();
+  const language = {
     ...data,
-  });
-  return resource as University;
+    createdAt: now,
+    updatedAt: now,
+  };
+  const { resource } = await programmingContainer.items.create(language);
+  return resource as ProgrammingLanguage;
 }
 
-export async function deleteUniversity(id: string) {
-  if (!universitiesContainer) await initializeDatabase();
-  await universitiesContainer.item(id, id).delete();
-}
-
-// プログラミング学習関連の操作関数
-export async function getProgrammingChapter(id: string) {
+// プログラミングチャプター関連の操作関数
+export async function getProgrammingChapters(languageId: string) {
   if (!programmingChaptersContainer) await initializeDatabase();
-  const { resource } = await programmingChaptersContainer.item(id, id).read();
-  return resource as ProgrammingChapter | undefined;
-}
-
-export async function getProgrammingProgress(userId: string, languageId: string, chapterId: string) {
-  if (!programmingProgressContainer) await initializeDatabase();
-  const id = `${userId}-${languageId}-${chapterId}`;
-  const partitionKey = `${userId}-${languageId}`;
-  const { resource } = await programmingProgressContainer.item(id, partitionKey).read();
-  return resource as ProgrammingProgress | undefined;
-}
-
-export async function updateProgrammingProgress(userId: string, languageId: string, chapterId: string, data: Partial<ProgrammingProgress>) {
-  if (!programmingProgressContainer) await initializeDatabase();
-  const id = `${userId}-${languageId}-${chapterId}`;
-  const partitionKey = `${userId}-${languageId}`;
-  const { resource: existingProgress } = await programmingProgressContainer.item(id, partitionKey).read();
-
-  if (existingProgress) {
-    const { resource } = await programmingProgressContainer.item(id, partitionKey).replace({
-      ...existingProgress,
-      ...data,
-      lastAccessedAt: new Date().toISOString(),
-    });
-    return resource as ProgrammingProgress;
-  } else {
-    const { resource } = await programmingProgressContainer.items.create({
-      id,
-      partitionKey,
-      userId,
-      languageId,
-      chapterId,
-      videoCompleted: false,
-      exercisesCompleted: [],
-      lastAccessedAt: new Date().toISOString(),
-      ...data,
-    });
-    return resource as ProgrammingProgress;
-  }
-}
-
-// 資格マスタの操作関数
-export async function getCertifications() {
-  if (!certificationsContainer) await initializeDatabase();
-  const { resources } = await certificationsContainer.items
-    .query('SELECT * FROM c')
-    .fetchAll();
-  return resources as Certification[];
-}
-
-export async function getCertification(id: string) {
-  if (!certificationsContainer) await initializeDatabase();
-  console.log('Fetching certification from CosmosDB:', id);
-  const { resource } = await certificationsContainer.item(id, id).read();
-  console.log('CosmosDB response:', resource);
-
-  // 問題を取得
-  if (!certificationQuestionsContainer) await initializeDatabase();
-  const { resources: questions } = await certificationQuestionsContainer.items
+  const { resources } = await programmingChaptersContainer.items
     .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
-      parameters: [{ name: '@certificationId', value: id }]
+      query: 'SELECT * FROM c WHERE c.languageId = @languageId',
+      parameters: [{ name: '@languageId', value: languageId }],
     })
     .fetchAll();
-  console.log('Questions from CosmosDB:', questions);
-
-  return {
-    ...resource,
-    questions
-  } as Certification | undefined;
+  return resources as ProgrammingChapter[];
 }
 
-export async function createCertification(data: CreateCertificationInput) {
-  if (!certificationsContainer) await initializeDatabase();
-  const id = Math.random().toString(36).substring(2, 15);
-  const { resource } = await certificationsContainer.items.create({ ...data, id });
-  return resource as Certification;
+export async function getProgrammingChapter(id: string, languageId: string) {
+  if (!programmingChaptersContainer) await initializeDatabase();
+  const { resource } = await programmingChaptersContainer.item(id, languageId).read();
+  return resource as ProgrammingChapter;
 }
 
-export async function updateCertification(id: string, data: UpdateCertificationInput) {
-  if (!certificationsContainer) await initializeDatabase();
-  const { resource: existingCertification } = await certificationsContainer.item(id, id).read();
-  if (!existingCertification) return undefined;
-
-  const { resource } = await certificationsContainer.item(id, id).replace({
-    ...existingCertification,
+export async function createProgrammingChapter(data: Omit<ProgrammingChapter, 'id' | 'createdAt' | 'updatedAt'>) {
+  if (!programmingChaptersContainer) await initializeDatabase();
+  const now = new Date().toISOString();
+  const id = `${data.languageId}-${Date.now()}`;
+  const chapter = {
     ...data,
+    id,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const { resource } = await programmingChaptersContainer.items.create(chapter);
+  return resource as ProgrammingChapter;
+}
+
+export async function updateProgrammingChapter(id: string, languageId: string, data: Partial<ProgrammingChapter>) {
+  if (!programmingChaptersContainer) await initializeDatabase();
+  const { resource: existingChapter } = await programmingChaptersContainer.item(id, languageId).read();
+  if (!existingChapter) return null;
+
+  const updatedChapter = {
+    ...existingChapter,
+    ...data,
+    updatedAt: new Date().toISOString(),
+  };
+  const { resource } = await programmingChaptersContainer.item(id, languageId).replace(updatedChapter);
+  return resource as ProgrammingChapter;
+}
+
+export async function deleteProgrammingChapter(id: string, languageId: string) {
+  if (!programmingChaptersContainer) await initializeDatabase();
+  await programmingChaptersContainer.item(id, languageId).delete();
+}
+
+export async function updateProgrammingChaptersOrder(languageId: string, chapters: { id: string; order: number }[]) {
+  if (!programmingChaptersContainer) await initializeDatabase();
+  
+  const updates = chapters.map(async ({ id, order }) => {
+    const { resource } = await programmingChaptersContainer.item(id, languageId).read();
+    if (!resource) return;
+
+    return programmingChaptersContainer.item(id, languageId).replace({
+      ...resource,
+      order,
+      updatedAt: new Date().toISOString(),
+    });
   });
-  return resource as Certification;
+
+  await Promise.all(updates);
 }
 
-export async function deleteCertification(id: string) {
-  if (!certificationsContainer) await initializeDatabase();
-  await certificationsContainer.item(id, id).delete();
+// 英語学習関連の関数
+export async function getEnglishNewsContainer() {
+  if (!englishNewsContainer) await initializeDatabase();
+  return englishNewsContainer;
 }
 
-// チャプター関連の操作関数
-export async function getCertificationChapters(certificationId: string) {
-  if (!certificationChaptersContainer) await initializeDatabase();
-  const { resources } = await certificationChaptersContainer.items
-    .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
-      parameters: [{ name: '@certificationId', value: certificationId }]
-    })
-    .fetchAll();
-  console.log('Query result:', resources);
-  return resources as CertificationChapter[];
+export async function getEnglishMoviesContainer() {
+  if (!englishMoviesContainer) await initializeDatabase();
+  return englishMoviesContainer;
 }
 
-export async function getCertificationChapter(id: string, certificationId: string) {
-  if (!certificationChaptersContainer) await initializeDatabase();
-  const { resource } = await certificationChaptersContainer.item(id, certificationId).read();
-  return resource as CertificationChapter | undefined;
+export async function getEnglishBusinessContainer() {
+  if (!englishBusinessContainer) await initializeDatabase();
+  return englishBusinessContainer;
 }
 
-export async function createCertificationChapter(data: Omit<CertificationChapter, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) {
-  try {
-    console.log('createCertificationChapter - Start');
-    if (!certificationChaptersContainer) {
-      console.log('Initializing database...');
-      await initializeDatabase();
-    }
-    const id = Math.random().toString(36).substring(2, 15);
-    console.log('Generated chapter ID:', id);
-    console.log('Creating chapter with data:', { ...data, id });
-    
-    const itemToCreate = { ...data, id };
-    console.log('Creating item with partition key:', itemToCreate.certificationId);
-    const { resource } = await certificationChaptersContainer.items.create(itemToCreate);
-    console.log('Created chapter resource:', JSON.stringify(resource, null, 2));
-    return resource as CertificationChapter;
-  } catch (error) {
-    console.error('Error in createCertificationChapter:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-    }
-    throw error;
-  }
+// 設定関連の関数
+export async function getSettingsContainer() {
+  if (!settingsContainer) await initializeDatabase();
+  return settingsContainer;
 }
-
-// 進捗関連の操作関数
-export async function getCertificationProgress(userId: string, certificationId: string, chapterId: string) {
-  if (!certificationProgressContainer) await initializeDatabase();
-  const id = `${userId}-${certificationId}-${chapterId}`;
-  const partitionKey = `${userId}-${certificationId}`;
-  const { resource } = await certificationProgressContainer.item(id, partitionKey).read();
-  return resource as CertificationProgress | undefined;
-}
-
-export async function updateCertificationProgress(userId: string, certificationId: string, chapterId: string, data: Partial<CertificationProgress>) {
-  if (!certificationProgressContainer) await initializeDatabase();
-  const id = `${userId}-${certificationId}-${chapterId}`;
-  const partitionKey = `${userId}-${certificationId}`;
-  const { resource: existingProgress } = await certificationProgressContainer.item(id, partitionKey).read();
-
-  if (existingProgress) {
-    const { resource } = await certificationProgressContainer.item(id, partitionKey).replace({
-      ...existingProgress,
-      ...data,
-      lastAccessedAt: new Date().toISOString(),
-    });
-    return resource as CertificationProgress;
-  } else {
-    const { resource } = await certificationProgressContainer.items.create({
-      id,
-      partitionKey,
-      userId,
-      certificationId,
-      chapterId,
-      videoCompleted: false,
-      completedQuestions: [],
-      lastAccessedAt: new Date().toISOString(),
-      ...data,
-    });
-    return resource as CertificationProgress;
-  }
-}
-
-// 問題の進捗関連の操作関数
-export async function getCertificationQuestionProgress(certificationId: string) {
-  if (!certificationQuestionsProgressContainer) await initializeDatabase();
-  const { resources } = await certificationQuestionsProgressContainer.items
-    .query({
-      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
-      parameters: [{ name: '@certificationId', value: certificationId }]
-    })
-    .fetchAll();
-  return resources as CertificationQuestionProgress[];
-}
-
-export async function createCertificationQuestionProgress(data: Omit<CertificationQuestionProgress, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) {
-  if (!certificationQuestionsProgressContainer) await initializeDatabase();
-  const id = Math.random().toString(36).substring(2, 15);
-  const { resource } = await certificationQuestionsProgressContainer.items.create({ ...data, id });
-  return resource as CertificationQuestionProgress;
-}
-
-// アプリケーション起動時にデータベースを初期化
-initializeDatabase().catch(console.error);

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景の円 -->
+  <circle cx="100" cy="100" r="90" fill="#4F46E5" opacity="0.1"/>
+  
+  <!-- 人物のシルエット -->
+  <path d="M100 60C88.954 60 80 68.954 80 80C80 91.046 88.954 100 100 100C111.046 100 120 91.046 120 80C120 68.954 111.046 60 100 60Z" fill="#4F46E5"/>
+  <path d="M140 140C140 118.909 122.091 110 100 110C77.909 110 60 118.909 60 140" stroke="#4F46E5" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- 吹き出し -->
+  <path d="M130 70C150 70 160 50 165 40" stroke="#4F46E5" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="170" cy="35" r="8" fill="#4F46E5"/>
+  
+  <!-- "Hi!" テキスト -->
+  <text x="155" y="38" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Hi!</text>
+</svg>

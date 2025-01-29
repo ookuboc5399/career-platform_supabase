@@ -34,6 +34,9 @@ const CONTAINERS = {
   CERTIFICATION_VIDEOS: 'certification-videos',
   CERTIFICATION_THUMBNAILS: 'certification-thumbnails',
   CERTIFICATION_IMAGES: 'certification-images',
+  ENGLISH_NEWS_AUDIO: 'english-news-audio',
+  ENGLISH_NEWS_IMAGES: 'english-news-images',
+  ENGLISH_MOVIES: 'english-movies',
 } as const;
 
 // SASトークンの生成（サーバーサイド用）
@@ -53,7 +56,6 @@ export async function generateSasToken(containerName: string, blobName: string) 
 
   const permissions = new Permissions();
   permissions.read = true;
-  permissions.write = true;
 
   const startsOn = new Date();
   const expiresOn = new Date(new Date().valueOf() + 3600 * 1000); // 1時間有効
@@ -70,6 +72,56 @@ export async function generateSasToken(containerName: string, blobName: string) 
   return sasToken;
 }
 
+// 動画URLにSASトークンを付与する関数
+export async function generateSasUrl(url: string) {
+  try {
+    console.log('Generating SAS URL for:', url);
+    
+    // URLからコンテナ名とBLOB名を抽出
+    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    const baseUrl = `https://${accountName}.blob.core.windows.net/`;
+    const urlWithCorrectDomain = url.replace(/^https:\/\/[^/]+\//, baseUrl);
+    const urlObj = new URL(urlWithCorrectDomain);
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    const containerName = pathParts[0];
+    const blobName = decodeURIComponent(pathParts.slice(1).join('/'));
+    
+    console.log('Extracted parts:', {
+      originalUrl: url,
+      correctedUrl: urlWithCorrectDomain,
+      containerName,
+      blobName
+    });
+
+    // BlobClientを使用してSASトークンを生成
+    const containerClient = getContainerClient(containerName);
+    
+    // ファイル名の正規化とエンコード
+    const normalizedBlobName = blobName
+      .normalize('NFC')  // Unicode正規化
+      .replace(/\s+/g, ' '); // 連続する空白を1つに
+    const encodedBlobName = encodeURIComponent(normalizedBlobName).replace(/%2F/g, '/');
+    console.log('Encoded blob name:', encodedBlobName);
+    const blobClient = containerClient.getBlobClient(encodedBlobName);
+
+    const startsOn = new Date();
+    const expiresOn = new Date(new Date().valueOf() + 3600 * 1000);
+
+    const sasToken = await blobClient.generateSasUrl({
+      permissions: Permissions.parse("r"),
+      startsOn,
+      expiresOn,
+      protocol: SASProtocol.Https,
+    });
+
+    console.log('Generated SAS URL:', sasToken);
+    return sasToken;
+  } catch (error) {
+    console.error('Error generating SAS token:', error);
+    throw error;
+  }
+}
+
 // ファイルアップロード（サーバーサイド用）
 export async function uploadFile(containerName: string, file: Buffer, fileName: string, contentType: string): Promise<string> {
   if (typeof window !== 'undefined') {
@@ -84,7 +136,9 @@ export async function uploadFile(containerName: string, file: Buffer, fileName: 
     blobHTTPHeaders: { blobContentType: contentType }
   });
 
-  return blockBlobClient.url;
+  // SASトークンを生成して返す
+  const sasToken = await generateSasToken(containerName, blobName);
+  return `${blockBlobClient.url}?${sasToken}`;
 }
 
 // ファイル削除（サーバーサイド用）
@@ -93,7 +147,7 @@ export async function deleteFile(containerName: string, url: string): Promise<vo
     throw new Error('This function can only be used on the server side');
   }
 
-  const blobName = url.split('/').pop();
+  const blobName = url.split('/').pop()?.split('?')[0]; // SASトークンを除去
   if (!blobName) throw new Error('Invalid blob URL');
   
   const containerClient = getContainerClient(containerName);
@@ -117,10 +171,6 @@ export async function initializeStorageContainers() {
       
       if (!exists) {
         await containerClient.create();
-        // サムネイルと画像は公開アクセス可能に
-        if (containerName.includes('thumbnails') || containerName.includes('images')) {
-          await containerClient.setAccessPolicy('blob');
-        }
       }
     }
 

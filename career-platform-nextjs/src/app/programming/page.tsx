@@ -1,6 +1,18 @@
 import Link from 'next/link';
 
-const languages = [
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  features: string[];
+  level: string;
+  chapters: number;
+  exercises: number;
+  type: 'language' | 'framework';
+}
+
+const courses: Course[] = [
   {
     id: 'python',
     title: 'Python入門',
@@ -14,6 +26,7 @@ const languages = [
     level: '初級',
     chapters: 9,
     exercises: 23,
+    type: 'language',
   },
   {
     id: 'javascript',
@@ -28,8 +41,110 @@ const languages = [
     level: '初級',
     chapters: 8,
     exercises: 20,
+    type: 'language',
+  },
+  {
+    id: 'go',
+    title: 'Go入門',
+    description: '高性能で効率的なバックエンド開発のためのGo言語を基礎から学びます。',
+    icon: '🔷',
+    features: [
+      '並行処理とゴルーチン',
+      'メモリ管理とポインタ',
+      'マイクロサービス開発',
+    ],
+    level: '中級',
+    chapters: 7,
+    exercises: 18,
+    type: 'language',
+  },
+  {
+    id: 'react',
+    title: 'React入門',
+    description: 'モダンなWebフロントエンド開発のためのReactフレームワークを学びます。',
+    icon: '⚛️',
+    features: [
+      'コンポーネント設計',
+      'Hooksの活用',
+      'ステート管理',
+    ],
+    level: '中級',
+    chapters: 6,
+    exercises: 15,
+    type: 'framework',
   },
 ];
+
+const CourseCard = ({ course }: { course: Course }) => (
+  <Link
+    href={`/programming/${course.id}`}
+    key={course.id}
+    className="block"
+  >
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <span className="text-4xl mr-4">{course.icon}</span>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{course.title}</h2>
+              <p className="text-sm text-gray-500">
+                {course.level} • {course.chapters}チャプター • {course.exercises}個の演習
+              </p>
+            </div>
+          </div>
+          <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+            無料
+          </div>
+        </div>
+
+        <p className="text-gray-600 mb-6">
+          {course.description}
+        </p>
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-gray-900">学習内容:</h3>
+          <ul className="space-y-1">
+            {course.features.map((feature, index) => (
+              <li key={index} className="flex items-center text-gray-600">
+                <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-8">
+          <div className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700">
+            コースを始める
+            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 px-8 py-4">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center text-gray-500">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            約10時間
+          </div>
+          <div className="flex items-center text-gray-500">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            修了証明書あり
+          </div>
+        </div>
+      </div>
+    </div>
+  </Link>
+);
 
 export default function ProgrammingPage() {
   return (
@@ -41,77 +156,28 @@ export default function ProgrammingPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {languages.map((lang) => (
-          <Link 
-            key={lang.id}
-            href={`/programming/${lang.id}`}
-            className="block"
-          >
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <span className="text-4xl mr-4">{lang.icon}</span>
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{lang.title}</h2>
-                      <p className="text-sm text-gray-500">
-                        {lang.level} • {lang.chapters}チャプター • {lang.exercises}個の演習
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
-                    無料
-                  </div>
-                </div>
+      <div className="space-y-12">
+        <div>
+          <h2 className="text-2xl font-bold mb-6">プログラミング言語</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'language')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
 
-                <p className="text-gray-600 mb-6">
-                  {lang.description}
-                </p>
-
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">学習内容:</h3>
-                  <ul className="space-y-1">
-                    {lang.features.map((feature, index) => (
-                      <li key={index} className="flex items-center text-gray-600">
-                        <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="mt-8">
-                  <div className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700">
-                    コースを始める
-                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 px-8 py-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-gray-500">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    約10時間
-                  </div>
-                  <div className="flex items-center text-gray-500">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    修了証明書あり
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Link>
-        ))}
+        <div>
+          <h2 className="text-2xl font-bold mb-6">フレームワーク</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'framework')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
       </div>
 
       <div className="mt-12 bg-blue-50 rounded-xl p-8">

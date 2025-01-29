@@ -272,7 +272,10 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
             <label className="block text-sm font-medium text-gray-700 mb-2">
               動画
             </label>
-            <VideoUploader onUploadComplete={setVideoUrl} />
+            <VideoUploader 
+              onUploadComplete={setVideoUrl} 
+              type="certification"
+            />
             {videoUrl && (
               <div className="mt-2 text-sm text-gray-600">
                 アップロード完了: {videoUrl}

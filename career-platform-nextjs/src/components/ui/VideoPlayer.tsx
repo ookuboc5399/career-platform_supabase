@@ -13,6 +13,87 @@ export default function VideoPlayer({ url, onComplete, completed = false }: Vide
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchVideoUrl = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      console.log('Original video URL:', url);
+      const response = await fetch(`/api/storage/video?url=${encodeURIComponent(url)}`);
+      const responseText = await response.text();
+      console.log('API Response:', responseText);
+
+      if (!response.ok) {
+        console.error('API Error:', responseText);
+        throw new Error(responseText || 'Failed to get video URL');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('JSON Parse Error:', e);
+        throw new Error('Invalid response format');
+      }
+
+      console.log('Parsed response:', data);
+      if (!data.url) {
+        throw new Error('No URL received from server');
+      }
+
+      console.log('Setting video URL:', data.url);
+      setVideoUrl(data.url);
+    } catch (error) {
+      console.error('Error fetching video URL:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load video');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadVideo = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        console.log('Original video URL:', url);
+        const response = await fetch(`/api/storage/video?url=${encodeURIComponent(url)}`);
+        const responseText = await response.text();
+        console.log('API Response:', responseText);
+
+        if (!response.ok) {
+          console.error('API Error:', responseText);
+          throw new Error(responseText || 'Failed to get video URL');
+        }
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('JSON Parse Error:', e);
+          throw new Error('Invalid response format');
+        }
+
+        console.log('Parsed response:', data);
+        if (!data.url) {
+          throw new Error('No URL received from server');
+        }
+
+        console.log('Setting video URL:', data.url);
+        setVideoUrl(data.url);
+      } catch (error) {
+        console.error('Error fetching video URL:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load video');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadVideo();
+  }, [url]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -62,12 +143,37 @@ export default function VideoPlayer({ url, onComplete, completed = false }: Vide
 
   return (
     <div className="relative group">
-      <video
-        ref={videoRef}
-        src={url}
-        className="w-full h-full"
-        onClick={togglePlay}
-      />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64 bg-gray-100">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col justify-center items-center h-64 bg-gray-100 p-4">
+          <div className="text-red-500 text-center mb-2">動画の読み込みに失敗しました</div>
+          <div className="text-sm text-gray-600 text-center break-all">
+            {error}
+          </div>
+          <button
+            onClick={() => {
+              setError(null);
+              setIsLoading(true);
+              fetchVideoUrl();
+            }}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            再試行
+          </button>
+        </div>
+      ) : videoUrl && (
+        <video
+          ref={videoRef}
+          className="w-full h-full"
+          onClick={togglePlay}
+        >
+          <source src={videoUrl} type="video/mp4" />
+          お使いのブラウザは動画の再生に対応していません。
+        </video>
+      )}
 
       {/* コントロールオーバーレイ */}
       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">

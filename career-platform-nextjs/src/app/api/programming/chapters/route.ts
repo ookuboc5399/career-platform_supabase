@@ -1,57 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-interface Exercise {
-  title: string;
-  description: string;
-  testCases: {
-    input: string;
-    expectedOutput: string;
-  }[];
-}
-
-interface Chapter {
-  id: string;
-  languageId: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  duration: string;
-  order: number;
-  status: 'draft' | 'published';
-  exercises: Exercise[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-// 仮のデータストア
-const mockChapters: { [key: string]: Chapter[] } = {
-  'python': [
-    {
-      id: '1',
-      languageId: 'python',
-      title: '環境構築',
-      description: '開発環境のセットアップと基本的なツールの使い方',
-      videoUrl: 'https://example.com/videos/python-setup.mp4',
-      duration: '30分',
-      order: 1,
-      status: 'published',
-      exercises: [
-        {
-          title: 'Pythonのインストール確認',
-          description: 'インストールされたPythonのバージョンを確認してください。',
-          testCases: [
-            {
-              input: 'python --version',
-              expectedOutput: 'Python 3',
-            },
-          ],
-        },
-      ],
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-14T00:00:00Z',
-    },
-  ],
-};
+import { getProgrammingChapters, createProgrammingChapter } from '@/lib/cosmos-db';
+import { CONTAINERS } from '@/lib/storage';
+import { uploadFile } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,18 +15,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const chapters = mockChapters[languageId] || [];
+    const chapters = await getProgrammingChapters(languageId);
     return NextResponse.json(chapters);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const chapters = await getChaptersByLanguage(languageId);
-    return NextResponse.json(chapters);
-    */
   } catch (error) {
     console.error('Error fetching chapters:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch chapters' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch chapters' },
       { status: 500 }
     );
   }
@@ -85,7 +29,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { languageId, title, description, videoUrl, duration, exercises } = body;
+    const { languageId, title, description, videoUrl, duration, exercises, status } = body;
 
     if (!languageId || !title || !description || !videoUrl || !duration) {
       return NextResponse.json(
@@ -94,44 +38,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 仮の実装（開発用）
-    const newChapter: Chapter = {
-      id: Date.now().toString(),
+    // 既存のチャプターを取得して新しい順序を決定
+    const existingChapters = await getProgrammingChapters(languageId);
+    const order = existingChapters.length + 1;
+
+    // サムネイルの生成（動画の最初のフレーム）は別途実装が必要
+    const thumbnailUrl = '';
+
+    const chapter = await createProgrammingChapter({
       languageId,
       title,
       description,
       videoUrl,
+      thumbnailUrl,
       duration,
-      order: (mockChapters[languageId]?.length || 0) + 1,
-      status: 'draft',
+      order,
+      status: status || 'draft',
       exercises: exercises || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (!mockChapters[languageId]) {
-      mockChapters[languageId] = [];
-    }
-    mockChapters[languageId].push(newChapter);
-
-    return NextResponse.json(newChapter);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const chapter = await createChapter({
-      languageId,
-      title,
-      description,
-      videoUrl,
-      duration,
-      exercises,
     });
+
     return NextResponse.json(chapter);
-    */
   } catch (error) {
     console.error('Error creating chapter:', error);
     return NextResponse.json(
-      { error: 'Failed to create chapter' },
+      { error: error instanceof Error ? error.message : 'Failed to create chapter' },
       { status: 500 }
     );
   }
