@@ -1,188 +1,187 @@
-interface MovieDetailPageProps {
-  params: {
-    id: string;
-  };
-}
+'use client';
 
-export default function MovieDetailPage({ params }: MovieDetailPageProps) {
-  // 実際のアプリケーションではAPIから取得
-  const movieData = {
-    title: "インセプション",
-    description: "クリストファー・ノーラン監督による傑作SF映画。ビジネスシーンや科学的な表現が豊富に登場します。",
-    level: "中級",
-    duration: "2時間 28分",
-    scenes: [
-      {
-        time: "0:15:30",
-        title: "ビジネスミーティング",
-        dialogue: {
-          english: "We need to go deeper into the subconscious.",
-          japanese: "より深い潜在意識に入る必要がある。",
-          explanation: "ビジネスの文脈でよく使用される「go deeper into」（より深く掘り下げる）という表現を学びます。"
-        },
-        keyPhrases: [
-          {
-            phrase: "go deeper into",
-            meaning: "より深く掘り下げる",
-            examples: [
-              "Let's go deeper into the market analysis.",
-              "We need to go deeper into this issue."
-            ]
-          },
-          {
-            phrase: "subconscious",
-            meaning: "潜在意識",
-            examples: [
-              "The subconscious mind is powerful.",
-              "It affects your subconscious behavior."
-            ]
-          }
-        ]
-      },
-      {
-        time: "0:45:20",
-        title: "チーム戦略会議",
-        dialogue: {
-          english: "We need a kick to synchronize with the inner ear.",
-          japanese: "内耳と同期するためのキックが必要だ。",
-          explanation: "科学的な文脈での「synchronize with」（同期する）という表現を学びます。"
-        },
-        keyPhrases: [
-          {
-            phrase: "synchronize with",
-            meaning: "〜と同期する",
-            examples: [
-              "Please synchronize with the server.",
-              "The devices need to synchronize with each other."
-            ]
-          }
-        ]
+import { useState, useEffect, useRef } from 'react';
+import { Movie, Subtitle } from '@/types/english';
+import type { EnglishVideoPlayerHandle } from '@/components/ui/EnglishVideoPlayer';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+
+const EnglishVideoPlayer = dynamic(() => import('@/components/ui/EnglishVideoPlayer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center items-center h-full bg-gray-100">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+    </div>
+  ),
+});
+
+export default function MovieDetailPage() {
+  const params = useParams();
+  const movieId = params?.id as string;
+  const [movie, setMovie] = useState<Movie | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentSubtitle, setCurrentSubtitle] = useState<Subtitle | null>(null);
+  const playerRef = useRef<EnglishVideoPlayerHandle>(null);
+
+  useEffect(() => {
+    if (movieId) {
+      loadMovie();
+    }
+  }, [movieId]);
+
+  const loadMovie = async () => {
+    try {
+      const response = await fetch('/api/admin/english/movies');
+      if (!response.ok) {
+        throw new Error('Failed to load movies');
       }
-    ],
-    vocabulary: [
-      {
-        category: "ビジネス用語",
-        words: [
-          { word: "inception", meaning: "開始、着手", usage: "The inception of this project was last year." },
-          { word: "extraction", meaning: "抽出", usage: "Data extraction is an important process." }
-        ]
-      },
-      {
-        category: "科学用語",
-        words: [
-          { word: "subconscious", meaning: "潜在意識", usage: "The subconscious mind influences our decisions." },
-          { word: "projection", meaning: "投影", usage: "This is a projection of your fears." }
-        ]
+      const movies = await response.json();
+      console.log('Loaded movies:', movies); // デバッグログ
+
+      const foundMovie = movies.find((m: Movie) => m.id === movieId);
+      console.log('Found movie:', foundMovie); // デバッグログ
+      
+      if (!foundMovie) {
+        throw new Error('Movie not found');
       }
-    ]
+
+      setMovie(foundMovie);
+    } catch (error) {
+      console.error('Error loading movie:', error);
+      setError('Failed to load movie');
+    }
   };
+
+  const handleSubtitleClick = (subtitle: Subtitle) => {
+    if (playerRef.current) {
+      playerRef.current.seekTo(subtitle.startTime);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="font-bold">エラーが発生しました</div>
+          <div className="mt-1">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!movie) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex justify-center items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('Rendering movie:', movie); // デバッグログ
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-4">{movieData.title}</h1>
-        
-        <div className="bg-gray-800 rounded-lg p-6 mb-8">
-          <p className="text-gray-300 text-lg mb-4">{movieData.description}</p>
-          <div className="flex gap-4">
-            <span className="px-3 py-1 bg-blue-500 rounded text-white">
-              難易度: {movieData.level}
-            </span>
-            <span className="px-3 py-1 bg-gray-600 rounded text-white">
-              {movieData.duration}
-            </span>
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto py-4 px-4">
+        <div className="mb-4">
+          <Link
+            href="/english/movies"
+            className="text-blue-500 hover:text-blue-700 flex items-center"
+          >
+            ← 動画一覧に戻る
+          </Link>
         </div>
 
-        <div className="space-y-8">
-          <h2 className="text-2xl font-semibold text-white mb-6">
-            学習シーン
-          </h2>
-          {movieData.scenes.map((scene, index) => (
-            <div
-              key={scene.time}
-              className="bg-gray-800 rounded-lg overflow-hidden"
-            >
-              <div className="bg-gray-700 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-white">
-                    {scene.title}
-                  </h3>
-                  <span className="text-gray-400">{scene.time}</span>
-                </div>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                <div className="space-y-3">
-                  <p className="text-lg text-blue-400">{scene.dialogue.english}</p>
-                  <p className="text-gray-300">{scene.dialogue.japanese}</p>
-                  <p className="text-sm text-gray-400">{scene.dialogue.explanation}</p>
-                </div>
+        <h1 className="text-2xl font-bold mb-4">{movie.title}</h1>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* 左側: 動画プレーヤー */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-white rounded-lg shadow-lg">
+              <EnglishVideoPlayer
+                ref={playerRef}
+                url={movie.videoUrl}
+                subtitles={movie.subtitles}
+                onSubtitleChange={setCurrentSubtitle}
+              />
+            </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-lg font-medium text-white">
-                    重要フレーズ
-                  </h4>
-                  {scene.keyPhrases.map((phrase) => (
-                    <div
-                      key={phrase.phrase}
-                      className="bg-gray-700 rounded-lg p-4"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-400 font-medium">
-                          {phrase.phrase}
-                        </span>
-                        <span className="text-gray-300">
-                          {phrase.meaning}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {phrase.examples.map((example) => (
-                          <p key={example} className="text-sm text-gray-400">
-                            例: {example}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* 現在の字幕 */}
+            {currentSubtitle && (
+              <div className="bg-white rounded-lg shadow-lg p-4">
+                <div className="text-lg font-medium">{currentSubtitle.text}</div>
+                <div className="text-gray-600 mt-2">{currentSubtitle.translation}</div>
+              </div>
+            )}
+
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              <p className="text-gray-600">{movie.description}</p>
+              <div className="flex items-center gap-2 mt-4">
+                <span className={`text-sm px-3 py-1 rounded ${
+                  movie.level === 'beginner' ? 'bg-green-100 text-green-800' :
+                  movie.level === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {movie.level === 'beginner' ? '初級' :
+                   movie.level === 'intermediate' ? '中級' : '上級'}
+                </span>
+                {movie.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded"
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold text-white mb-6">
-            重要語彙
-          </h2>
-          <div className="space-y-6">
-            {movieData.vocabulary.map((category) => (
-              <div key={category.category}>
-                <h3 className="text-xl font-semibold text-white mb-4">
-                  {category.category}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {category.words.map((word) => (
-                    <div
-                      key={word.word}
-                      className="bg-gray-800 rounded-lg p-4"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-400 font-medium">
-                          {word.word}
-                        </span>
-                        <span className="text-gray-300">
-                          {word.meaning}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        例: {word.usage}
-                      </p>
+          {/* 右側: 字幕リストと単語リスト */}
+          <div className="space-y-4">
+            {/* 字幕リスト */}
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              <h2 className="text-lg font-semibold mb-4">字幕リスト</h2>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {movie.subtitles.map((subtitle, index) => (
+                  <div
+                    key={index}
+                    className={`p-2 rounded transition-colors cursor-pointer ${
+                      subtitle === currentSubtitle
+                        ? 'bg-blue-100'
+                        : 'hover:bg-gray-100'
+                    }`}
+                    onClick={() => handleSubtitleClick(subtitle)}
+                  >
+                    <div className="text-sm text-gray-500">
+                      {Math.floor(subtitle.startTime / 60)}:
+                      {String(subtitle.startTime % 60).padStart(2, '0')}
                     </div>
-                  ))}
-                </div>
+                    <div className="font-medium">{subtitle.text}</div>
+                    <div className="text-sm text-gray-600">{subtitle.translation}</div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* 単語リスト */}
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              <h2 className="text-lg font-semibold mb-4">単語リスト</h2>
+              <div className="space-y-4 max-h-[300px] overflow-y-auto">
+                {movie.vocabulary.map((word, index) => (
+                  <div key={index} className="border-b pb-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">{word.word}</span>
+                      <span className="text-gray-500">{word.partOfSpeech}</span>
+                    </div>
+                    <div className="text-gray-600 mt-1">{word.translation}</div>
+                    <div className="text-sm text-gray-500 mt-1">{word.example}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

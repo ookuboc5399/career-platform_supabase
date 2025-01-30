@@ -5,9 +5,11 @@ import { Button } from './button';
 
 export interface VideoUploaderProps {
   onUpload: (url: string) => void | Promise<void>;
+  type?: 'certification' | 'programming' | 'english';
+  disabled?: boolean;
 }
 
-export function VideoUploader({ onUpload }: VideoUploaderProps) {
+export function VideoUploader({ onUpload, type = 'certification', disabled = false }: VideoUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +22,8 @@ export function VideoUploader({ onUpload }: VideoUploaderProps) {
       setError(null);
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('video', file);
+      formData.append('type', type);
 
       const response = await fetch('/api/upload/video', {
         method: 'POST',
@@ -28,14 +31,20 @@ export function VideoUploader({ onUpload }: VideoUploaderProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload video');
+        const errorText = await response.text();
+        console.error('Upload response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Failed to upload video: ${errorText}`);
       }
 
       const data = await response.json();
       await onUpload(data.url);
     } catch (error) {
       console.error('Error uploading video:', error);
-      setError('Failed to upload video');
+      setError(error instanceof Error ? error.message : 'Failed to upload video');
     } finally {
       setIsUploading(false);
     }
@@ -50,14 +59,14 @@ export function VideoUploader({ onUpload }: VideoUploaderProps) {
           onChange={handleFileChange}
           className="hidden"
           id="video-upload"
-          disabled={isUploading}
+          disabled={isUploading || disabled}
         />
         <label htmlFor="video-upload">
           <Button
             type="button"
             variant="outline"
             className="w-full"
-            disabled={isUploading}
+            disabled={isUploading || disabled}
             asChild
           >
             <span>

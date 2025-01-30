@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import NewsManager from "./components/NewsManager";
 import MovieManager from "./components/MovieManager";
 import BusinessManager from "./components/BusinessManager";
+import QuestionManager from "./components/QuestionManager";
 
 export default function AdminEnglishPage() {
   return (
@@ -13,6 +14,7 @@ export default function AdminEnglishPage() {
           <TabsTrigger value="news">ニュース管理</TabsTrigger>
           <TabsTrigger value="movies">映画で学ぶ</TabsTrigger>
           <TabsTrigger value="business">ビジネス英語</TabsTrigger>
+          <TabsTrigger value="questions">問題管理</TabsTrigger>
         </TabsList>
 
         <TabsContent value="news" className="space-y-4">
@@ -30,6 +32,12 @@ export default function AdminEnglishPage() {
         <TabsContent value="business" className="space-y-4">
           <div className="grid grid-cols-1 gap-6">
             <BusinessManager />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="questions" className="space-y-4">
+          <div className="grid grid-cols-1 gap-6">
+            <QuestionManager />
           </div>
         </TabsContent>
       </Tabs>

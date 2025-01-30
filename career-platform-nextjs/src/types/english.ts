@@ -1,3 +1,48 @@
+export interface Subtitle {
+  startTime: number; // 開始時間（秒）
+  endTime: number;   // 終了時間（秒）
+  text: string;      // 字幕テキスト
+  translation: string; // 日本語訳
+}
+
+export interface VocabularyItem {
+  word: string;      // 英単語
+  meaning: string;   // 日本語の意味
+  context: string;   // 文中での使用例
+  timestamp: number; // 動画内での出現時間（秒）
+}
+
+export interface Movie {
+  id: string;
+  title: string;
+  description: string;
+  videoUrl: string;
+  transcript: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  tags: string[];
+  subtitles: Subtitle[];
+  vocabulary: Vocabulary[];
+  processed: boolean;
+  isPublished: boolean;
+  createdAt: string;
+  error?: string | null;
+  lastProcessingTime?: string;
+  lastProcessingStage?: 'pending' | 'youtube_processing' | 'content_processing' | 'completed' | 'failed';
+  // YouTube 関連の情報
+  originalTitle?: string;
+  originalDescription?: string;
+  duration?: number;
+  thumbnailUrl?: string;
+}
+
+export interface Vocabulary {
+  word: string;
+  partOfSpeech: string;
+  translation: string;
+  example: string;
+  timestamp: number;
+}
+
 export interface Hint {
   type: 'grammar' | 'vocabulary' | 'expression';
   title: string;

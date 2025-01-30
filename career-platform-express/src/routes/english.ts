@@ -5,7 +5,7 @@ import cors from 'cors';
 
 const router = express.Router();
 
-// CORS設定を修正
+// CORS設定
 router.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:4000'],
   credentials: true,
@@ -13,27 +13,77 @@ router.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Azure OpenAI設定
-const AZURE_OPENAI = {
-  endpoint: process.env.AZURE_OPENAI_ENDPOINT || '',
-  key: process.env.AZURE_OPENAI_API_KEY || '',
-  deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || '',
+// Azure設定
+const AZURE_CONFIG = {
+  openai: {
+    endpoint: process.env.AZURE_OPENAI_ENDPOINT || '',
+    key: process.env.AZURE_OPENAI_API_KEY || '',
+    deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || '',
+  },
+  speech: {
+    key: process.env.AZURE_SPEECH_KEY || '',
+    region: process.env.AZURE_SPEECH_REGION || '',
+    endpoint: `https://${process.env.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
+  },
+  storage: {
+    accountName: process.env.AZURE_STORAGE_ACCOUNT_NAME || '',
+    accountKey: process.env.AZURE_STORAGE_ACCOUNT_KEY || '',
+  }
 };
 
 // Azure Blob Storage設定
 const blobServiceClient = new BlobServiceClient(
-  `https://${process.env.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+  `https://${AZURE_CONFIG.storage.accountName}.blob.core.windows.net`,
   new StorageSharedKeyCredential(
-    process.env.AZURE_STORAGE_ACCOUNT_NAME!,
-    process.env.AZURE_STORAGE_ACCOUNT_KEY!
+    AZURE_CONFIG.storage.accountName,
+    AZURE_CONFIG.storage.accountKey
   )
 );
 
-// ニュース一覧の取得
+// Azure設定の取得
+router.get('/english/settings', async (req, res) => {
+  try {
+    const settings = {
+      speech: {
+        key: AZURE_CONFIG.speech.key,
+        region: AZURE_CONFIG.speech.region,
+        endpoint: AZURE_CONFIG.speech.endpoint,
+      }
+    };
+    res.json(settings);
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+// 動画の処理
+router.post('/english/movies/process', async (req, res) => {
+  try {
+    const { videoUrl } = req.body;
+
+    // 1. 音声の抽出
+    // 2. 音声認識
+    // 3. 字幕生成
+    // 4. 翻訳
+    // 5. 単語抽出
+
+    // TODO: 実装
+
+    res.json({
+      success: true,
+      message: 'Video processing started'
+    });
+  } catch (error) {
+    console.error('Error processing video:', error);
+    res.status(500).json({ error: 'Failed to process video' });
+  }
+});
+
+// 既存のニュース関連のルート
 router.get('/english/news', async (req, res) => {
   try {
     console.log('Express API: Fetching news list...');
-    // CosmosDBからニュース一覧を取得する処理を実装
     res.json([]);
   } catch (error) {
     console.error('Express API Error:', error);
@@ -41,10 +91,8 @@ router.get('/english/news', async (req, res) => {
   }
 });
 
-// ニュースの生成
 router.post('/english/news/generate', async (req, res) => {
   try {
-    // SSE設定
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -57,7 +105,6 @@ router.post('/english/news/generate', async (req, res) => {
       message: 'ニュースを生成中...',
     };
 
-    // 進捗状況の送信
     const sendProgress = () => {
       res.write(`data: ${JSON.stringify(progress)}\n\n`);
     };
@@ -65,7 +112,6 @@ router.post('/english/news/generate', async (req, res) => {
     console.log('1. Starting news generation...');
     sendProgress();
 
-    // ニュースの生成
     const newsPrompt = `Generate 3 current news summaries in the following format:
     1. [Title]
     [Brief summary]
@@ -76,7 +122,7 @@ router.post('/english/news/generate', async (req, res) => {
 
     console.log('2. Generating news with Azure OpenAI...');
     const newsResponse = await axios.post(
-      `${AZURE_OPENAI.endpoint}/openai/deployments/${AZURE_OPENAI.deploymentName}/chat/completions?api-version=2023-05-15`,
+      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
       {
         messages: [{ role: 'user', content: newsPrompt }],
         temperature: 0.7,
@@ -84,7 +130,7 @@ router.post('/english/news/generate', async (req, res) => {
       },
       {
         headers: {
-          'api-key': AZURE_OPENAI.key,
+          'api-key': AZURE_CONFIG.openai.key,
           'Content-Type': 'application/json',
         },
       }
@@ -93,17 +139,15 @@ router.post('/english/news/generate', async (req, res) => {
     const newsSummaries = newsResponse.data.choices[0].message?.content || '';
     const firstNews = newsSummaries.split('2.')[0];
 
-    // 進捗更新
     progress.step = 2;
     progress.message = '会話文を生成中...';
     sendProgress();
 
-    // 会話文の生成
     console.log('3. Generating conversation...');
     const conversationPrompt = `Create a natural English conversation between two people (A and B) discussing the following news:\n${firstNews}\nMake it educational and include some useful vocabulary or expressions.`;
 
     const conversationResponse = await axios.post(
-      `${AZURE_OPENAI.endpoint}/openai/deployments/${AZURE_OPENAI.deploymentName}/chat/completions?api-version=2023-05-15`,
+      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
       {
         messages: [{ role: 'user', content: conversationPrompt }],
         temperature: 0.7,
@@ -111,7 +155,7 @@ router.post('/english/news/generate', async (req, res) => {
       },
       {
         headers: {
-          'api-key': AZURE_OPENAI.key,
+          'api-key': AZURE_CONFIG.openai.key,
           'Content-Type': 'application/json',
         },
       }
@@ -119,15 +163,13 @@ router.post('/english/news/generate', async (req, res) => {
 
     const conversation = conversationResponse.data.choices[0].message?.content || '';
 
-    // 進捗更新
     progress.step = 3;
     progress.message = '音声を生成中...';
     sendProgress();
 
-    // 音声の生成
     console.log('4. Generating audio...');
     const speechResponse = await axios.post(
-      `https://${process.env.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
+      AZURE_CONFIG.speech.endpoint,
       `<speak version='1.0' xml:lang='en-US'>
         <voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>
           ${conversation}
@@ -135,7 +177,7 @@ router.post('/english/news/generate', async (req, res) => {
       </speak>`,
       {
         headers: {
-          'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY,
+          'Ocp-Apim-Subscription-Key': AZURE_CONFIG.speech.key,
           'Content-Type': 'application/ssml+xml',
           'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
         },
@@ -143,7 +185,6 @@ router.post('/english/news/generate', async (req, res) => {
       }
     );
 
-    // 音声ファイルのアップロード
     const audioFileName = `news-audio-${Date.now()}.mp3`;
     const audioContainerClient = blobServiceClient.getContainerClient('english-news-audio');
     const audioBlobClient = audioContainerClient.getBlockBlobClient(audioFileName);
@@ -151,17 +192,15 @@ router.post('/english/news/generate', async (req, res) => {
       blobHTTPHeaders: { blobContentType: 'audio/mpeg' }
     });
 
-    // 進捗更新
     progress.step = 4;
     progress.message = '画像を生成中...';
     sendProgress();
 
-    // 画像生成のプロンプト作成
     console.log('5. Generating image...');
     const imagePrompt = `Create a detailed image description for this news story that could be used with DALL-E:\n${firstNews}`;
 
     const imageDescResponse = await axios.post(
-      `${AZURE_OPENAI.endpoint}/openai/deployments/${AZURE_OPENAI.deploymentName}/chat/completions?api-version=2023-05-15`,
+      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
       {
         messages: [{ role: 'user', content: imagePrompt }],
         temperature: 0.7,
@@ -169,7 +208,7 @@ router.post('/english/news/generate', async (req, res) => {
       },
       {
         headers: {
-          'api-key': AZURE_OPENAI.key,
+          'api-key': AZURE_CONFIG.openai.key,
           'Content-Type': 'application/json',
         },
       }
@@ -177,9 +216,8 @@ router.post('/english/news/generate', async (req, res) => {
 
     const imageDescription = imageDescResponse.data.choices[0].message?.content || '';
 
-    // 画像の生成
     const imageResponse = await axios.post(
-      `${AZURE_OPENAI.endpoint}/openai/deployments/${AZURE_OPENAI.deploymentName}/images/generations?api-version=2023-06-01-preview`,
+      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/images/generations?api-version=2023-06-01-preview`,
       {
         prompt: imageDescription,
         n: 1,
@@ -187,13 +225,12 @@ router.post('/english/news/generate', async (req, res) => {
       },
       {
         headers: {
-          'api-key': AZURE_OPENAI.key,
+          'api-key': AZURE_CONFIG.openai.key,
           'Content-Type': 'application/json',
         },
       }
     );
 
-    // 生成された画像のダウンロードとアップロード
     const imageUrl = imageResponse.data.data[0].url;
     if (!imageUrl) {
       throw new Error('Failed to generate image');
@@ -208,11 +245,9 @@ router.post('/english/news/generate', async (req, res) => {
       blobHTTPHeaders: { blobContentType: 'image/png' }
     });
 
-    // 進捗更新
     progress.step = 5;
     progress.message = '完了';
     
-    // 最終データの送信
     const result = {
       id: Date.now().toString(),
       title: firstNews.split('\n')[0].replace('1. ', ''),
@@ -235,13 +270,11 @@ router.post('/english/news/generate', async (req, res) => {
   }
 });
 
-// ニュースの更新
 router.patch('/english/news/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
     console.log('Express API: Updating news:', { id, updateData });
-    // CosmosDBでニュースを更新する処理を実装
     res.json({ id, ...updateData });
   } catch (error) {
     console.error('Express API Error:', error);
@@ -249,12 +282,10 @@ router.patch('/english/news/:id', async (req, res) => {
   }
 });
 
-// ニュースの削除
 router.delete('/english/news/:id', async (req, res) => {
   try {
     const { id } = req.params;
     console.log('Express API: Deleting news:', id);
-    // CosmosDBからニュースを削除する処理を実装
     res.status(204).send();
   } catch (error) {
     console.error('Express API Error:', error);

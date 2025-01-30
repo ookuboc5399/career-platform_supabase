@@ -7,17 +7,10 @@ import { CONVERSATION_TOPICS } from '@/types/english';
 import Image from 'next/image';
 import { createRealtimeClient } from '@/lib/azure-realtime-client';
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 export default function ConversationPage() {
   const [isListening, setIsListening] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState(CONVERSATION_TOPICS[0]);
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
@@ -25,13 +18,13 @@ export default function ConversationPage() {
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [audioBuffer, setAudioBuffer] = useState<Int16Array[]>([]);
+  const [isRealtimeMode, setIsRealtimeMode] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const realtimeClientRef = useRef<any>(null);
   const sessionRef = useRef<any>(null);
-  const currentAssistantMessageRef = useRef<string>('');
 
   const addDebugLog = (message: string) => {
     console.log(message);
@@ -41,15 +34,12 @@ export default function ConversationPage() {
   useEffect(() => {
     const initAudio = async () => {
       try {
-        // Initialize AudioContext
         audioContextRef.current = new AudioContext({
-          sampleRate: 16000 // Required sample rate for Azure OpenAI
+          sampleRate: 16000
         });
         
-        // Load audio worklet
         await audioContextRef.current.audioWorklet.addModule('/audio-processor.js');
         
-        // Get environment variables
         const endpoint = process.env.NEXT_PUBLIC_AZURE_OPENAI_CONVA_ENDPOINT;
         const apiKey = process.env.NEXT_PUBLIC_AZURE_OPENAI_CONVA_API_KEY;
 
@@ -60,7 +50,6 @@ export default function ConversationPage() {
           throw new Error('Azure OpenAI environment variables are not set');
         }
 
-        // Create realtime client
         realtimeClientRef.current = createRealtimeClient({
           endpoint,
           apiKey,
@@ -88,29 +77,6 @@ export default function ConversationPage() {
       addDebugLog(`Transcript: ${data.text}`);
     } else if (data.type === 'transcript_completed') {
       addDebugLog('Transcript completed');
-      // Add user message to conversation
-      if (currentTranscript.trim()) {
-        const message = { role: 'user' as const, content: currentTranscript };
-        setMessages(prev => [...prev, message]);
-        addDebugLog(`Added user message: ${message.content}`);
-        setCurrentTranscript('');
-      }
-    } else if (data.type === 'response_delta') {
-      currentAssistantMessageRef.current += data.text;
-      setMessages(prev => {
-        const newMessages = [...prev];
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
-          lastMessage.content = currentAssistantMessageRef.current;
-        } else {
-          newMessages.push({ role: 'assistant', content: currentAssistantMessageRef.current });
-        }
-        return newMessages;
-      });
-      addDebugLog(`Response: ${data.text}`);
-    } else if (data.type === 'response_completed') {
-      addDebugLog('Response completed');
-      currentAssistantMessageRef.current = '';
     } else if (data.type === 'error') {
       const errorMessage = data.message || 'Unknown error';
       setError(errorMessage);
@@ -119,122 +85,11 @@ export default function ConversationPage() {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      setError(null);
-      setCurrentTranscript('');
-      setConnectionStatus('connecting');
-      addDebugLog('Starting audio capture...');
-
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
-      mediaStreamRef.current = stream;
-
-      // Create new AudioContext if needed
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({
-          sampleRate: 16000
-        });
-        await audioContextRef.current.audioWorklet.addModule('/audio-processor.js');
-      } else if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      // Create audio source
-      const source = audioContextRef.current!.createMediaStreamSource(stream);
-
-      // Create audio worklet node
-      audioWorkletNodeRef.current = new AudioWorkletNode(
-        audioContextRef.current!,
-        'audio-processor'
-      );
-
-      // Connect audio nodes
-      source.connect(audioWorkletNodeRef.current);
-      audioWorkletNodeRef.current.connect(audioContextRef.current!.destination);
-
-      setIsRecording(true);
-      setConnectionStatus('connected');
-      addDebugLog('Audio capture started');
-
-      // Handle audio data from worklet
-      audioWorkletNodeRef.current.port.onmessage = async (event) => {
-        if (event.data.type === 'audioData') {
-          try {
-            if (event.data.data instanceof Int16Array) {
-              setAudioBuffer(prev => [...prev, event.data.data]);
-              addDebugLog(`Recorded audio chunk: ${event.data.data.length} samples`);
-            }
-          } catch (error) {
-            console.error('Error recording audio:', error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            addDebugLog(`Error recording audio: ${errorMessage}`);
-            setError(`Failed to record audio data: ${errorMessage}`);
-            await stopRecording();
-          }
-        }
-      };
-
-      setIsRecording(true);
-      addDebugLog('Audio capture started');
-
-    } catch (error) {
-      console.error('Error starting audio capture:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      addDebugLog(`Error: ${errorMessage}`);
-      setError(`Failed to start audio capture: ${errorMessage}`);
-      setConnectionStatus('disconnected');
-    }
-  };
-
-  const stopRecording = async () => {
-    try {
-      addDebugLog('Stopping recording...');
-
-      // Stop media stream
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-      }
-      
-      // Disconnect audio nodes
-      if (audioWorkletNodeRef.current) {
-        audioWorkletNodeRef.current.port.onmessage = null;
-        audioWorkletNodeRef.current.disconnect();
-        audioWorkletNodeRef.current = null;
-      }
-
-      if (audioContextRef.current) {
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-
-      setIsRecording(false);
-      setConnectionStatus('disconnected');
-      addDebugLog('Recording stopped');
-
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      addDebugLog(`Error: ${errorMessage}`);
-      setError(`Failed to stop recording: ${errorMessage}`);
-    }
-  };
-
   const startListening = async () => {
     try {
       addDebugLog('Starting to listen...');
       setConnectionStatus('connecting');
 
-      // Create realtime session
       sessionRef.current = await realtimeClientRef.current.createSession({
         model: process.env.NEXT_PUBLIC_AZURE_OPENAI_CONVA_DEPLOYMENT_NAME || 'gpt-4o-realtime-preview',
         temperature: 0.7,
@@ -247,11 +102,9 @@ export default function ConversationPage() {
       addDebugLog('Session created successfully');
       setIsListening(true);
 
-      // Send all recorded audio data
-      if (audioBuffer.length > 0) {
+      if (!isRealtimeMode && audioBuffer.length > 0) {
         addDebugLog(`Sending ${audioBuffer.length} audio chunks...`);
         try {
-          // Combine all chunks into one array
           const combinedAudio = new Int16Array(audioBuffer.reduce((acc, chunk) => acc + chunk.length, 0));
           let offset = 0;
           for (const chunk of audioBuffer) {
@@ -259,10 +112,7 @@ export default function ConversationPage() {
             offset += chunk.length;
           }
           
-          // Send combined audio data
           await sessionRef.current.sendAudio(Array.from(combinedAudio));
-          
-          // Send commit message
           await sessionRef.current.send({
             type: 'input_audio_buffer.commit'
           });
@@ -284,6 +134,7 @@ export default function ConversationPage() {
       addDebugLog(`Error: ${errorMessage}`);
       setError(`Failed to start listening: ${errorMessage}`);
       setIsListening(false);
+      setConnectionStatus('disconnected');
     }
   };
 
@@ -291,13 +142,13 @@ export default function ConversationPage() {
     try {
       addDebugLog('Stopping listening...');
 
-      // Close session
       if (sessionRef.current) {
         await sessionRef.current.close();
         sessionRef.current = null;
       }
 
       setIsListening(false);
+      setCurrentTranscript('');
       addDebugLog('Listening stopped');
 
     } catch (error) {
@@ -305,6 +156,123 @@ export default function ConversationPage() {
       const errorMessage = error instanceof Error ? error.message : String(error);
       addDebugLog(`Error: ${errorMessage}`);
       setError(`Failed to stop listening: ${errorMessage}`);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      setError(null);
+      setCurrentTranscript('');
+      setConnectionStatus('connecting');
+      addDebugLog('Starting audio capture...');
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      mediaStreamRef.current = stream;
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({
+          sampleRate: 16000
+        });
+        await audioContextRef.current.audioWorklet.addModule('/audio-processor.js');
+      } else if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const source = audioContextRef.current!.createMediaStreamSource(stream);
+      audioWorkletNodeRef.current = new AudioWorkletNode(
+        audioContextRef.current!,
+        'audio-processor'
+      );
+
+      source.connect(audioWorkletNodeRef.current);
+
+      // Always start listening immediately
+      await startListening();
+
+      // In realtime mode, connect to destination
+      if (isRealtimeMode) {
+        audioWorkletNodeRef.current.connect(audioContextRef.current!.destination);
+      }
+
+      audioWorkletNodeRef.current.port.onmessage = async (event) => {
+        if (event.data.type === 'audioData') {
+          try {
+            if (event.data.data instanceof Int16Array) {
+              if (isRealtimeMode && sessionRef.current) {
+                await sessionRef.current.sendAudio(Array.from(event.data.data));
+                await sessionRef.current.send({
+                  type: 'input_audio_buffer.commit'
+                });
+                addDebugLog(`Sent audio chunk: ${event.data.data.length} samples`);
+              } else {
+                setAudioBuffer(prev => [...prev, event.data.data]);
+                addDebugLog(`Recorded audio chunk: ${event.data.data.length} samples`);
+              }
+            }
+          } catch (error) {
+            console.error('Error handling audio:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            addDebugLog(`Error handling audio: ${errorMessage}`);
+            setError(`Failed to handle audio data: ${errorMessage}`);
+            await stopRecording();
+          }
+        }
+      };
+
+      setIsRecording(true);
+      setConnectionStatus('connected');
+      addDebugLog('Audio capture started');
+
+    } catch (error) {
+      console.error('Error starting audio capture:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addDebugLog(`Error: ${errorMessage}`);
+      setError(`Failed to start audio capture: ${errorMessage}`);
+      setConnectionStatus('disconnected');
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      addDebugLog('Stopping recording...');
+
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+      
+      if (audioWorkletNodeRef.current) {
+        audioWorkletNodeRef.current.port.postMessage({ type: 'stop' });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        audioWorkletNodeRef.current.port.onmessage = null;
+        audioWorkletNodeRef.current.disconnect();
+        audioWorkletNodeRef.current = null;
+      }
+
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
+      await stopListening();
+
+      setIsRecording(false);
+      setConnectionStatus('disconnected');
+      addDebugLog('Recording stopped');
+
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      addDebugLog(`Error: ${errorMessage}`);
+      setError(`Failed to stop recording: ${errorMessage}`);
     }
   };
 
@@ -349,7 +317,7 @@ export default function ConversationPage() {
                 {selectedTopic.tasks[selectedTaskIndex].description}
               </p>
               <div className="bg-gray-700 p-4 rounded-lg mb-4">
-                <h3 className="text-sm font-medium mb-2">Requirements:</h3>
+                <h3 className="text-sm font-medium mb-2">タスクの要件:</h3>
                 <ul className="list-disc list-inside space-y-1">
                   {selectedTopic.tasks[selectedTaskIndex].requirements.map((req, index) => (
                     <li key={index} className="text-sm text-gray-300">{req}</li>
@@ -364,59 +332,68 @@ export default function ConversationPage() {
                   </div>
                 )}
 
-                <div className="flex items-center space-x-4">
-                  <Button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    variant={isRecording ? "destructive" : "default"}
-                    className="w-40"
-                    disabled={connectionStatus === 'connecting'}
-                  >
-                    {connectionStatus === 'connecting' ? 'Connecting...' :
-                     isRecording ? 'Stop' : 'Start'} Recording
-                  </Button>
-                  <Button
-                    onClick={isListening ? stopListening : startListening}
-                    variant={isListening ? "destructive" : "default"}
-                    className="w-40"
-                    disabled={!isRecording || connectionStatus === 'connecting'}
-                  >
-                    {isListening ? 'Stop' : 'Start'} Listening
-                  </Button>
-                  <div className="text-sm">
-                    Status: {connectionStatus}
-                  </div>
-                </div>
-
                 <div className="space-y-4">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-blue-900 ml-auto'
-                          : 'bg-gray-700'
-                      }`}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 bg-gray-700 p-1 rounded-lg">
+                      <Button
+                        onClick={() => setIsRealtimeMode(false)}
+                        variant={!isRealtimeMode ? "default" : "ghost"}
+                        className={`w-36 ${!isRealtimeMode ? 'bg-blue-600 hover:bg-blue-500' : 'hover:bg-gray-600'}`}
+                        disabled={isRecording || isListening}
+                      >
+                        バッファモード
+                      </Button>
+                      <Button
+                        onClick={() => setIsRealtimeMode(true)}
+                        variant={isRealtimeMode ? "default" : "ghost"}
+                        className={`w-36 ${isRealtimeMode ? 'bg-blue-600 hover:bg-blue-500' : 'hover:bg-gray-600'}`}
+                        disabled={isRecording || isListening}
+                      >
+                        リアルタイム
+                      </Button>
+                    </div>
+                    <div className="text-sm px-4 py-2 bg-gray-700 rounded-lg flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        connectionStatus === 'connected' ? 'bg-green-500' :
+                        connectionStatus === 'connecting' ? 'bg-yellow-500' :
+                        'bg-red-500'
+                      }`} />
+                      <span>
+                        {connectionStatus === 'connecting' ? '接続中' :
+                         connectionStatus === 'connected' ? '接続済み' :
+                         '未接続'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      variant={isRecording ? "destructive" : "default"}
+                      className="w-48"
+                      disabled={connectionStatus === 'connecting'}
                     >
-                      <p className="text-gray-300">{message.role === 'user' ? 'You' : 'AI'}:</p>
-                      <p className="mt-2">{message.content}</p>
-                    </div>
-                  ))}
-                  {currentTranscript && (
-                    <div className="bg-gray-700 p-4 rounded-lg">
-                      <p className="text-gray-300">Current transcript:</p>
-                      <p className="mt-2">{currentTranscript}</p>
-                    </div>
-                  )}
+                      {connectionStatus === 'connecting' ? '接続中...' :
+                       isRecording ? '録音停止' : '録音開始'}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="bg-gray-700 p-4 rounded-lg">
-                  <p className="text-gray-300 mb-2">Debug Logs:</p>
-                  <div className="max-h-40 overflow-y-auto text-xs font-mono">
-                    {debugLogs.map((log, index) => (
-                      <div key={index} className="text-gray-400">{log}</div>
-                    ))}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">音声認識結果</h3>
+                    {isRecording && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-sm text-gray-300">録音中</span>
+                      </div>
+                    )}
                   </div>
+                  <p className="mt-2 whitespace-pre-wrap min-h-[100px]">
+                    {currentTranscript || '録音を開始すると、ここに音声認識結果が表示されます'}
+                  </p>
                 </div>
+
               </div>
             </div>
           </div>

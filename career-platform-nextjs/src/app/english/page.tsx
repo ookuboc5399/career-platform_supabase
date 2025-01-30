@@ -23,6 +23,13 @@ const features = [
     description: '人気の映画シーンを使って、実践的な英語を学びましょう。字幕とスクリプトを活用して、ネイティブの表現を身につけることができます。',
     imageUrl: '/images/english/hobbies.svg',
     href: '/english/movies'
+  },
+  {
+    id: 'question',
+    title: '問題演習',
+    description: '文法、単語、英作文の問題を通じて、基礎から応用まで総合的に英語力を強化します。AIによる添削で効果的に学習できます。',
+    imageUrl: '/images/english/study.svg',
+    href: '/english/question'
   }
 ];
 
@@ -37,7 +44,7 @@ export default function EnglishPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature) => (
             <Link key={feature.id} href={feature.href} className="block">
               <Card className="h-full p-6 bg-gray-800 hover:bg-gray-700 transition-colors border-gray-700 hover:border-gray-600">

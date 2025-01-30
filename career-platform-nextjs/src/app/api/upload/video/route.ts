@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get('video') as File;
-    const type = formData.get('type') as string; // 'certification' or 'programming'
+    const type = formData.get('type') as string; // 'certification', 'programming', or 'english'
     
     if (!file) {
       return NextResponse.json(
@@ -36,9 +36,23 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     // コンテナの選択
-    const containerName = type === 'certification' ? 
-      CONTAINERS.CERTIFICATION_VIDEOS : 
-      CONTAINERS.PROGRAMMING_VIDEOS;
+    let containerName;
+    switch (type) {
+      case 'certification':
+        containerName = CONTAINERS.CERTIFICATION_VIDEOS;
+        break;
+      case 'programming':
+        containerName = CONTAINERS.PROGRAMMING_VIDEOS;
+        break;
+      case 'english':
+        containerName = CONTAINERS.ENGLISH_MOVIES;
+        break;
+      default:
+        return NextResponse.json(
+          { error: 'Invalid video type' },
+          { status: 400 }
+        );
+    }
 
     // Blobストレージにアップロード
     const url = await uploadFile(
