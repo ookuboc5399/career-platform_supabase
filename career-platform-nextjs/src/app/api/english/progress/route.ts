@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
-import { auth } from '@/app/auth.config';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/auth';
 import { EnglishProgress } from '@/types/english';
 
 const client = new CosmosClient({
@@ -13,7 +14,7 @@ const container = database.container('english-progress');
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
