@@ -99,12 +99,20 @@ export default function GrammarPage() {
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">文法学習</h1>
-        <Link
-          href="/english/question"
-          className="text-blue-500 hover:text-blue-700 flex items-center"
-        >
-          ← 問題一覧に戻る
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/english/question/grammar/session"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            総合問題に挑戦
+          </Link>
+          <Link
+            href="/english/question"
+            className="text-blue-500 hover:text-blue-700 flex items-center"
+          >
+            ← 問題一覧に戻る
+          </Link>
+        </div>
       </div>
 
       {/* フィルター */}

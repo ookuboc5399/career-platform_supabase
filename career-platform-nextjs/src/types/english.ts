@@ -58,6 +58,39 @@ export interface Task {
   hints: Hint[];
 }
 
+export type GrammarCategory = 'all' | 'tense' | 'subjunctive' | 'relative' | 'modal' | 'passive';
+
+export interface EnglishProgress {
+  id: string;
+  userId: string;
+  type: 'grammar' | 'vocabulary' | 'writing';
+  category?: GrammarCategory;
+  questions: {
+    questionId: string;
+    selectedAnswer: number;
+    isCorrect: boolean;
+  }[];
+  score: number;
+  totalQuestions: number;
+  createdAt: string;
+}
+
+export interface QuestionContent {
+  question: string;
+  options: string[];
+  correctAnswers: number[];
+  explanation: string;
+}
+
+export interface Question {
+  id: string;
+  type: 'grammar' | 'vocabulary' | 'writing';
+  category?: GrammarCategory;
+  imageUrl?: string;
+  content: QuestionContent;
+  createdAt: string;
+}
+
 export interface ConversationTopic {
   id: string;
   title: string;

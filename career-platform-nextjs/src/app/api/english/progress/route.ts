@@ -1,92 +1,97 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { EnglishProgress } from '@/types/api';
+import { NextResponse } from 'next/server';
+import { CosmosClient } from '@azure/cosmos';
+import { auth } from '@/app/auth.config';
+import { EnglishProgress } from '@/types/english';
 
-// 仮のデータストア
-const mockProgress: { [key: string]: EnglishProgress } = {};
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || '',
+});
 
-export async function GET(request: NextRequest) {
+const database = client.database('career-platform');
+const container = database.container('english-progress');
+
+export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const lessonId = searchParams.get('lessonId');
-
-    if (!userId || !lessonId) {
-      return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
-      );
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const progressId = `${userId}-${lessonId}`;
-    const progress = mockProgress[progressId] || {
-      id: progressId,
-      userId,
-      contentId: lessonId,
-      lessonId,
-      contentType: 'english' as const,
-      videoCompleted: false,
-      completedExercises: [],
-      lastAccessedAt: new Date().toISOString(),
+    const body = await request.json();
+    const progress: EnglishProgress = {
+      id: `progress-${Date.now()}`,
+      userId: session.user.id,
+      type: body.type,
+      category: body.category,
+      questions: body.questions,
+      score: body.score,
+      totalQuestions: body.totalQuestions,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
-    return NextResponse.json(progress);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const progress = await getProgress(userId, lessonId);
-    return NextResponse.json(progress);
-    */
+    const { resource: createdProgress } = await container.items.create({
+      ...progress,
+      partitionKey: session.user.id // パーティションキーとしてuserIdを使用
+    });
+    return NextResponse.json(createdProgress);
   } catch (error) {
-    console.error('Error fetching progress:', error);
+    console.error('Error saving progress:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch progress' },
+      { error: 'Failed to save progress' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const body = await request.json();
-    const { userId, lessonId, data } = body;
-
-    if (!userId || !lessonId) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const progressId = `${userId}-${lessonId}`;
-    const now = new Date().toISOString();
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const category = searchParams.get('category');
 
-    const progress: EnglishProgress = {
-      id: progressId,
-      userId,
-      contentId: lessonId,
-      lessonId,
-      contentType: 'english',
-      videoCompleted: data.videoCompleted ?? false,
-      completedExercises: data.completedExercises ?? [],
-      lastAccessedAt: now,
-      createdAt: mockProgress[progressId]?.createdAt ?? now,
-      updatedAt: now,
+    let querySpec = {
+      query: 'SELECT * FROM c WHERE c.userId = @userId',
+      parameters: [
+        {
+          name: '@userId',
+          value: session.user.id
+        }
+      ]
     };
 
-    mockProgress[progressId] = progress;
-    return NextResponse.json(progress);
+    if (type) {
+      querySpec.query += ' AND c.type = @type';
+      querySpec.parameters.push({
+        name: '@type',
+        value: type
+      });
+    }
 
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const progress = await updateProgress(userId, lessonId, data);
+    if (category) {
+      querySpec.query += ' AND c.category = @category';
+      querySpec.parameters.push({
+        name: '@category',
+        value: category
+      });
+    }
+
+    querySpec.query += ' ORDER BY c.createdAt DESC';
+
+    const { resources: progress } = await container.items
+      .query(querySpec)
+      .fetchAll();
+
     return NextResponse.json(progress);
-    */
   } catch (error) {
-    console.error('Error updating progress:', error);
+    console.error('Error fetching progress:', error);
     return NextResponse.json(
-      { error: 'Failed to update progress' },
+      { error: 'Failed to fetch progress' },
       { status: 500 }
     );
   }

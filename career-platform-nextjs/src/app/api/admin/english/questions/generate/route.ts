@@ -1,115 +1,180 @@
 import { NextResponse } from 'next/server';
+import { CosmosClient } from '@azure/cosmos';
+import { BlobServiceClient } from '@azure/storage-blob';
 import { google } from 'googleapis';
-import { ImageAnnotatorClient } from '@google-cloud/vision';
-import { AzureOpenAI } from 'openai';
-import { drive_v3 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs/promises';
 
-const vision = new ImageAnnotatorClient();
-const openai = new AzureOpenAI({
-  apiKey: process.env.AZURE_OPENAI_API_KEY,
-  endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-  apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-  deployment: "gpt-4",
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || '',
 });
 
-async function initializeGoogleDrive() {
-  try {
-    const credentialsPath = path.join(process.cwd(), 'roadtoentrepreneur-6b8b51ad767a.json');
-    const credentials = JSON.parse(await fs.readFile(credentialsPath, 'utf8'));
-    
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-    });
+const database = client.database('career-platform');
+const container = database.container('english-questions');
 
-    const authClient = await auth.getClient() as OAuth2Client;
-    return google.drive({ 
-      version: 'v3', 
-      auth: authClient 
-    });
-  } catch (error) {
-    console.error('Error initializing Google Drive:', error);
-    throw error;
-  }
+const blobServiceClient = BlobServiceClient.fromConnectionString(
+  process.env.AZURE_STORAGE_CONNECTION_STRING || ''
+);
+
+const containerClient = blobServiceClient.getContainerClient('english-questions');
+
+async function getGoogleDriveAuth(): Promise<OAuth2Client> {
+  const credentialsPath = path.join(process.cwd(), 'roadtoentrepreneur-6b8b51ad767a.json');
+  const credentials = JSON.parse(await fs.readFile(credentialsPath, 'utf8'));
+  
+  const auth = new OAuth2Client({
+    clientId: credentials.client_id,
+    clientSecret: credentials.client_secret,
+    redirectUri: credentials.redirect_uris[0]
+  });
+
+  auth.setCredentials({
+    refresh_token: credentials.refresh_token
+  });
+
+  return auth;
 }
 
-async function downloadFile(drive: drive_v3.Drive, fileId: string): Promise<Buffer> {
+async function downloadImage(auth: OAuth2Client, fileId: string): Promise<Buffer> {
+  const drive = google.drive({ version: 'v3', auth });
   const response = await drive.files.get(
-    { 
-      fileId, 
-      alt: 'media',
-      supportsAllDrives: true 
-    },
+    { fileId, alt: 'media' },
     { responseType: 'arraybuffer' }
   );
-
   return Buffer.from(response.data as ArrayBuffer);
+}
+
+async function uploadImageToBlob(imageBuffer: Buffer, fileName: string): Promise<string> {
+  const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+  await blockBlobClient.upload(imageBuffer, imageBuffer.length);
+  return blockBlobClient.url;
+}
+
+async function extractQuestionsFromImage(imageUrl: string): Promise<any[]> {
+  const response = await fetch(`${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_VISION_DEPLOYMENT_ID}/chat/completions?api-version=2024-02-15-preview`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': process.env.AZURE_OPENAI_KEY || '',
+    },
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "system",
+          content: "画像内の英語の問題を解析してください。画像には複数の問題が含まれています。各問題について以下の形式でJSONを生成してください：\n" +
+            "{\n" +
+            "  \"questions\": [\n" +
+            "    {\n" +
+            "      \"question\": \"画像内の問題文をそのまま抽出\",\n" +
+            "      \"options\": [\"選択肢1\", \"選択肢2\", \"選択肢3\", \"選択肢4\"],\n" +
+            "      \"correctAnswers\": [正解の番号（1から4）],\n" +
+            "      \"explanation\": \"解説（日本語訳を含む）\"\n" +
+            "    },\n" +
+            "    // 画像内の他の問題も同様に抽出\n" +
+            "  ]\n" +
+            "}\n\n" +
+            "注意点：\n" +
+            "1. 問題文は画像内のテキストをそのまま抽出してください\n" +
+            "2. 選択肢は1, 2, 3, 4の形式で表示されているものをそのまま使用してください\n" +
+            "3. 正解は画像内の解答を参照してください\n" +
+            "4. 解説には問題の日本語訳と文法的な説明を含めてください"
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                url: imageUrl,
+                detail: "high"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to extract questions from image');
+  }
+
+  const result = await response.json();
+  const content = result.choices[0].message?.content;
+  if (!content) {
+    throw new Error('No content in response');
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+    return parsed.questions;
+  } catch (error) {
+    console.error('Error parsing questions:', error);
+    return [];
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const { fileId, type } = await request.json();
+    const body = await request.json();
+    const { fileId, type } = body;
 
-    // Google Driveクライアントを初期化
-    const drive = await initializeGoogleDrive();
+    // Google Drive認証
+    const auth = await getGoogleDriveAuth();
 
-    // 画像をダウンロード
-    const imageBuffer = await downloadFile(drive, fileId);
-
-    // Cloud Visionで画像からテキストを抽出
-    const [result] = await vision.textDetection(imageBuffer);
-    const extractedText = result.fullTextAnnotation?.text || '';
-
-    // Azure OpenAIで問題を生成
-    const systemPrompt = type === 'grammar' 
-      ? '英文法の問題を作成してください。文法的な誤りを見つけたり、適切な文法を選択する問題を作成してください。'
-      : type === 'vocabulary'
-      ? '英単語の問題を作成してください。単語の意味や使い方、類義語や反意語などの問題を作成してください。'
-      : '英作文の問題を作成してください。与えられた状況や文章を英語で表現する問題を作成してください。';
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `あなたは英語学習のための問題を作成する教師です。以下のテキストから${systemPrompt}
-          
-          問題の形式：
-          {
-            "question": "問題文",
-            "options": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
-            "correctAnswers": [1], // 1-based index
-            "explanation": "解説（日本語で詳しく説明してください）"
-          }`
-        },
-        {
-          role: "user",
-          content: extractedText
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
+    // Google Driveから画像を取得
+    const drive = google.drive({ version: 'v3', auth });
+    const { data: { files } } = await drive.files.list({
+      q: `'${fileId}' in parents and mimeType contains 'image/'`,
+      fields: 'files(id, name)',
+      orderBy: 'name',
     });
 
-    const generatedQuestion = JSON.parse(completion.choices[0].message.content || '{}');
+    if (!files) {
+      throw new Error('No files found');
+    }
 
-    // 問題を保存
-    const question = {
-      id: `question-${Date.now()}`,
-      type,
-      imageUrl: `https://drive.google.com/uc?id=${fileId}`,
-      content: generatedQuestion,
-      createdAt: new Date().toISOString(),
-    };
+    // 各画像から問題を抽出
+    const allQuestions = [];
+    for (const file of files) {
+      if (file.id) {
+        // 画像をダウンロードしてアップロード
+        const imageBuffer = await downloadImage(auth, file.id);
+        const fileName = `${Date.now()}-${file.id}.png`;
+        const imageUrl = await uploadImageToBlob(imageBuffer, fileName);
 
-    return NextResponse.json(question);
+        // 画像から問題を抽出
+        const questions = await extractQuestionsFromImage(imageUrl);
+        
+        // 各問題にメタデータを追加
+        const questionsWithMeta = questions.map((q: any, index: number) => ({
+          id: `question-${Date.now()}-${file.id}-${index}`,
+          type,
+          imageUrl,
+          content: q,
+          createdAt: new Date().toISOString(),
+        }));
+
+        allQuestions.push(...questionsWithMeta);
+      }
+    }
+
+    // 問題をCosmosDBに保存
+    const createdQuestions = [];
+    for (const question of allQuestions) {
+      const { resource: createdQuestion } = await container.items.create(question);
+      createdQuestions.push(createdQuestion);
+    }
+
+    return NextResponse.json(createdQuestions);
   } catch (error) {
-    console.error('Error generating question:', error);
+    console.error('Error generating questions:', error);
     return NextResponse.json(
-      { error: 'Failed to generate question' },
+      { error: 'Failed to generate questions' },
       { status: 500 }
     );
   }

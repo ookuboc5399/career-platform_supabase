@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
 
 const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || '',
-  key: process.env.COSMOS_KEY || '',
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || '',
 });
 
 const database = client.database('career-platform');
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
     const question = {
       id: `question-${Date.now()}`,
+      englishId: `question-${Date.now()}`, // パーティションキーとして使用
       createdAt: new Date().toISOString(),
       ...body,
     };

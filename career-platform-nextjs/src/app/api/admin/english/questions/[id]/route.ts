@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
 
 const client = new CosmosClient({
-  endpoint: process.env.COSMOS_ENDPOINT || '',
-  key: process.env.COSMOS_KEY || '',
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || '',
 });
 
 const database = client.database('career-platform');
@@ -35,7 +35,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
@@ -56,6 +56,7 @@ export async function PATCH(
     const updatedQuestion = {
       ...existingQuestion,
       ...body,
+      id: params.id, // IDは変更不可
       updatedAt: new Date().toISOString(),
     };
 
