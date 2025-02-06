@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { uploadFile, CONTAINERS } from '@/lib/storage';
 
+// ファイルサイズ制限の設定（新しい形式）
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -71,10 +75,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-// ファイルサイズ制限の設定
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

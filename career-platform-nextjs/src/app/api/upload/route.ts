@@ -35,6 +35,9 @@ export async function POST(request: NextRequest) {
       case 'certification-image':
         containerName = CONTAINERS.CERTIFICATION_IMAGES;
         break;
+      case 'question-option-image':
+        containerName = CONTAINERS.CERTIFICATION_IMAGES; // 選択肢の画像も同じコンテナを使用
+        break;
       default:
         return NextResponse.json(
           { error: 'Invalid file type' },

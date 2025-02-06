@@ -1,21 +1,38 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 
 interface Props {
   certificationId: string;
+  category: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CreateQuestionModal({ certificationId, isOpen, onClose }: Props) {
+interface Option {
+  text: string;
+  image: File | null;
+  imagePreview: string | null;
+}
+
+type CategoryMap = {
+  [key: string]: string[];
+};
+
+export default function CreateQuestionModal({ certificationId, category, isOpen, onClose }: Props) {
   const [question, setQuestion] = useState('');
   const [questionImage, setQuestionImage] = useState<File | null>(null);
   const [questionImagePreview, setQuestionImagePreview] = useState<string | null>(null);
-  const [options, setOptions] = useState(['', '', '', '']);
+  const [questionType, setQuestionType] = useState<'normal' | 'truefalse'>('normal');
+  const [options, setOptions] = useState<Option[]>([
+    { text: '', image: null, imagePreview: null },
+    { text: '', image: null, imagePreview: null },
+    { text: '', image: null, imagePreview: null },
+    { text: '', image: null, imagePreview: null }
+  ]);
   const [correctAnswers, setCorrectAnswers] = useState<number[]>([]);
   const [explanation, setExplanation] = useState('');
   const [explanationImage, setExplanationImage] = useState<File | null>(null);
@@ -24,20 +41,66 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
   const [mainCategory, setMainCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
 
-  type Categories = {
-    [key: string]: string[];
-  };
+  const getAvailableCategories = useCallback((): CategoryMap => {
+    if (category === 'finance') {
+      return {
+        '企業と法務': ['企業活動', '法務'],
+        '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ']
+      };
+    } else if (category === 'it') {
+      // certificationIdに基づいて異なるカテゴリーを返す
+      switch (certificationId) {
+        case '7': // ITパスポート
+          return {
+            'ストラテジ系': ['企業と法務', '経営戦略', 'システム戦略'],
+            'マネジメント系': ['開発技術', 'プロジェクトマネジメント', 'サービスマネジメント'],
+            'テクノロジ系': ['基礎理論', 'コンピュータシステム', '技術要素']
+          };
+        case 'e29446b8-60d1-4336-a057-0d0b2269895c': // AWS
+          return {
+            'コンピューティング': ['EC2', 'Lambda', 'ECS', 'FSx', 'Storage Gateway'],
+            'AWSクラウドの基本': ['オンプレミスとクラウド', 'AWSの概要'],
+            'ストレージ': ['S3', 'EBS', 'EFS'],
+            'データベース': ['RDS', 'DynamoDB', 'Aurora'],
+            'ネットワーキング': ['VPC', 'Route53', 'CloudFront', 'Direct Connect'],
+            'アプリケーション統合': ['SQS', 'SNS'],
+            'セキュリティ': ['IAM', 'WAF', 'Shield'],
+            '分析': ['Kinesis', 'Glue', 'Athena'],
+            '機械学習': ['Comprehend', 'Transcribe', 'Textract']
+          };
+        case '9': // 応用情報
+          return {
+            'テクノロジ': ['基礎理論', 'コンピュータシステム', 'データベース'],
+            'マネジメント': ['プロジェクトマネジメント', 'サービスマネジメント'],
+            'ストラテジ': ['システム戦略', 'システム企画', '経営戦略']
+          };
+          case '10': // 情報セキュリティマネジメント
+          return {
+            '科目A': ['基礎理論'],
+            '科目B': ['基礎理論']
+          };
+        default:
+          return {
+            'システム戦略': ['システム戦略', 'システム企画'],
+            '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
+            'プロジェクトマネジメント': ['プロジェクトマネジメント'],
+            'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
+            '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
+            'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
+          };
+      }
+    }
+    return {};
+  }, [category, certificationId]);
 
-  const categories: Categories = {
-    '企業と法務': ['企業活動', '法務'],
-    '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ'],
-    'システム戦略': ['システム戦略', 'システム企画'],
-    '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
-    'プロジェクトマネジメント': ['プロジェクトマネジメント'],
-    'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
-    '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
-    'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
-  };
+  const [categories, setCategories] = useState<CategoryMap>(getAvailableCategories());
+
+  useEffect(() => {
+    setCategories(getAvailableCategories());
+    setMainCategory('');
+    setSubCategory('');
+  }, [category, certificationId, getAvailableCategories]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleQuestionImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,11 +127,33 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
     }
   };
 
+  const handleOptionImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newOptions = [...options];
+        newOptions[index] = {
+          ...newOptions[index],
+          image: file,
+          imagePreview: reader.result as string
+        };
+        setOptions(newOptions);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const resetForm = () => {
     setQuestion('');
     setQuestionImage(null);
     setQuestionImagePreview(null);
-    setOptions(['', '', '', '']);
+    setOptions([
+      { text: '', image: null, imagePreview: null },
+      { text: '', image: null, imagePreview: null },
+      { text: '', image: null, imagePreview: null },
+      { text: '', image: null, imagePreview: null }
+    ]);
     setCorrectAnswers([]);
     setExplanation('');
     setExplanationImage(null);
@@ -88,10 +173,12 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
       // 画像をアップロード
       let questionImageUrl = '';
       let explanationImageUrl = '';
+      const optionImageUrls: string[] = [];
 
       if (questionImage) {
         const formData = new FormData();
         formData.append('file', questionImage);
+        formData.append('type', 'certification-image');
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formData,
@@ -101,9 +188,34 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
         questionImageUrl = uploadData.url;
       }
 
+      // 選択肢の画像をアップロード
+      for (const option of options) {
+        if (option.image) {
+          console.log('Uploading option image:', option.image.name);
+          const formData = new FormData();
+          formData.append('file', option.image);
+          formData.append('type', 'question-option-image');
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            console.error('Upload error response:', errorData);
+            throw new Error(`Failed to upload option image: ${errorData.error || 'Unknown error'}`);
+          }
+          if (!uploadResponse.ok) throw new Error('Failed to upload option image');
+          const uploadData = await uploadResponse.json();
+          optionImageUrls.push(uploadData.url);
+        } else {
+          optionImageUrls.push('');
+        }
+      }
+
       if (explanationImage) {
         const formData = new FormData();
         formData.append('file', explanationImage);
+        formData.append('type', 'certification-image');
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formData,
@@ -123,7 +235,10 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
           certificationId,
           question,
           questionImage: questionImageUrl,
-          options,
+          options: options.map((opt, index) => ({
+            text: opt.text,
+            imageUrl: optionImageUrls[index]
+          })),
           correctAnswers,
           explanation,
           explanationImage: explanationImageUrl,
@@ -188,37 +303,95 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
               )}
             </div>
 
+            {/* 問題タイプ */}
+            <div>
+              <label className="block text-base font-medium text-gray-900 mb-2">
+                問題タイプ
+              </label>
+              <select
+                value={questionType}
+                onChange={(e) => {
+                  const newType = e.target.value as 'normal' | 'truefalse';
+                  setQuestionType(newType);
+                  if (newType === 'truefalse') {
+                    setOptions([
+                      { text: '◯', image: null, imagePreview: null },
+                      { text: '×', image: null, imagePreview: null },
+                      { text: '', image: null, imagePreview: null },
+                      { text: '', image: null, imagePreview: null }
+                    ]);
+                    setCorrectAnswers([]);
+                  } else {
+                    setOptions([
+                      { text: '', image: null, imagePreview: null },
+                      { text: '', image: null, imagePreview: null },
+                      { text: '', image: null, imagePreview: null },
+                      { text: '', image: null, imagePreview: null }
+                    ]);
+                    setCorrectAnswers([]);
+                  }
+                }}
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="normal">通常問題</option>
+                <option value="truefalse">◯×問題</option>
+              </select>
+            </div>
+
             {/* 選択肢 */}
             <div>
               <label className="block text-base font-medium text-gray-900 mb-2">
-                選択肢
+                選択肢（空白可）
               </label>
               {options.map((option, index) => (
-                <div key={index} className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    checked={correctAnswers.includes(index)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setCorrectAnswers([...correctAnswers, index]);
-                      } else {
-                        setCorrectAnswers(correctAnswers.filter(i => i !== index));
-                      }
-                    }}
-                    className="h-4 w-4"
-                  />
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => {
-                      const newOptions = [...options];
-                      newOptions[index] = e.target.value;
-                      setOptions(newOptions);
-                    }}
-                    className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder={`選択肢${index + 1}`}
-                    required
-                  />
+                <div key={index} className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={correctAnswers.includes(index)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCorrectAnswers([...correctAnswers, index]);
+                        } else {
+                          setCorrectAnswers(correctAnswers.filter(i => i !== index));
+                        }
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <input
+                      type="text"
+                      value={option.text}
+                      onChange={(e) => {
+                        const newOptions = [...options];
+                        newOptions[index] = { ...newOptions[index], text: e.target.value };
+                        setOptions(newOptions);
+                      }}
+                      className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={`選択肢${index + 1}`}
+                      disabled={questionType === 'truefalse' && index < 2}
+                    />
+                  </div>
+                  {/* 選択肢の画像 */}
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleOptionImageChange(index, e)}
+                      className="w-full"
+                      disabled={questionType === 'truefalse' && index < 2}
+                    />
+                    {option.imagePreview && (
+                      <div className="mt-2">
+                        <Image
+                          src={option.imagePreview}
+                          alt={`選択肢${index + 1}の画像`}
+                          width={200}
+                          height={200}
+                          className="rounded-md"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -280,7 +453,7 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
                   'H27年春', 'H27年秋', 'H28年春', 'H28年秋',
                   'H29年春', 'H29年秋', 'H30年春', 'H30年秋',
                   'H31年春', 'R1年秋', 'R2年春', 'R2年秋',
-                  'R3年春', 'R3年秋', 'R4年春', 'R4年秋'
+                  'R3年春', 'R3年秋', 'R4年春', 'R4年秋','R5年春', 'R5年秋'
                 ].map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -321,7 +494,7 @@ export default function CreateQuestionModal({ certificationId, isOpen, onClose }
                   required
                 >
                   <option value="">選択してください</option>
-                  {categories[mainCategory].map(subCat => (
+                  {categories[mainCategory]?.map(subCat => (
                     <option key={subCat} value={subCat}>{subCat}</option>
                   ))}
                 </select>

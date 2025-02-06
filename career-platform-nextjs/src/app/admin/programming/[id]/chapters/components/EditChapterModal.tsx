@@ -35,9 +35,11 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
+      ...chapter,
       title,
       description,
       videoUrl,
+      thumbnailUrl: chapter?.thumbnailUrl || '',
       duration,
       status,
       exercises,
@@ -135,18 +137,49 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
             <label className="block text-sm font-medium text-gray-700 mb-2">
               動画
             </label>
-            <VideoUploader 
-              type="programming" 
-              onUploadComplete={(url, duration) => {
-                setVideoUrl(url);
-                setDuration(duration);
-              }} 
-            />
-            {videoUrl && (
-              <div className="mt-2 text-sm text-gray-600">
-                現在の動画: {videoUrl}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">
+                  動画URL
+                </label>
+                <input
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://example.com/video.mp4"
+                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">
+                  または動画をアップロード
+                </label>
+                <VideoUploader 
+                  type="programming" 
+                  onUploadComplete={(url, videoDuration) => {
+                    setVideoUrl(url);
+                    setDuration(videoDuration);
+                  }} 
+                />
+              </div>
+              {videoUrl && (
+                <div className="mt-2 text-sm text-gray-600">
+                  現在の動画: {videoUrl}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">
+                  動画の長さ（手動入力）
+                </label>
+                <input
+                  type="text"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="例: 5:30"
+                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
           </div>
 
 

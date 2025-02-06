@@ -38,6 +38,7 @@ export default function ProgrammingAdminPage() {
 
   const languageItems = languages.filter(lang => lang.type === 'language');
   const frameworkItems = languages.filter(lang => lang.type === 'framework');
+  const aiPlatformItems = languages.filter(lang => lang.type === 'ai-platform');
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -75,6 +76,25 @@ export default function ProgrammingAdminPage() {
           <h2 className="text-xl font-semibold mb-4">フレームワーク</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {frameworkItems.map((lang) => (
+              <Link
+                key={lang.id}
+                href={`/admin/programming/${lang.id}/chapters`}
+                className="block bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow p-6"
+              >
+                <h3 className="text-lg font-semibold mb-2">{lang.title}</h3>
+                <p className="text-gray-600 mb-4">{lang.description}</p>
+                <div className="text-blue-600 font-medium">
+                  チャプター管理 →
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">AIアプリ開発プラットフォーム</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {aiPlatformItems.map((lang) => (
               <Link
                 key={lang.id}
                 href={`/admin/programming/${lang.id}/chapters`}

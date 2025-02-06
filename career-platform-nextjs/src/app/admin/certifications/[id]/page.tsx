@@ -4,13 +4,7 @@ import { useState, useEffect } from 'react';
 import { Certification, CertificationQuestion } from '@/types/api';
 import { getCertification, updateCertification } from '@/lib/api';
 import Link from 'next/link';
-import Image from 'next/image';
-
-interface Props {
-  params: {
-    id: string;
-  };
-}
+import { useParams } from 'next/navigation';
 
 interface QuestionFormData {
   question: string;
@@ -19,30 +13,37 @@ interface QuestionFormData {
   explanation: string;
 }
 
-export default function CertificationQuestionsPage({ params }: Props) {
+export default function CertificationQuestionsPage() {
+  const params = useParams();
+  const certificationId = params?.id as string;
+
   const [certification, setCertification] = useState<Certification | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [formData, setFormData] = useState<QuestionFormData>({
     question: '',
-    choices: [
-      { id: '1', text: '' },
-      { id: '2', text: '' },
-      { id: '3', text: '' },
-      { id: '4', text: '' },
-    ],
+    choices: Array.from({ length: 4 }, (_, i) => ({ id: String(i + 1), text: '' })),
     correctAnswer: 0,
     explanation: '',
   });
 
   useEffect(() => {
-    fetchCertification();
-  }, []);
+    if (!certificationId) {
+      setError('Invalid certification ID');
+      return;
+    }
+    fetchCertification(certificationId);
+  }, [certificationId]);
 
-  const fetchCertification = async () => {
+  const fetchCertification = async (id: string) => {
+    setIsLoading(true);
     try {
-      const data = await getCertification(params.id);
+      const data = await getCertification(id);
+      if (!data) {
+        setError('Certification not found');
+        return;
+      }
       setCertification(data);
     } catch (error) {
       setError('Failed to fetch certification');
@@ -66,20 +67,10 @@ export default function CertificationQuestionsPage({ params }: Props) {
         questions: [...(certification.questions || []), newQuestion],
       };
 
-      await updateCertification(params.id, updatedCertification);
-      await fetchCertification();
+      await updateCertification(certificationId, updatedCertification);
+      await fetchCertification(certificationId);
       setIsModalOpen(false);
-      setFormData({
-        question: '',
-        choices: [
-          { id: '1', text: '' },
-          { id: '2', text: '' },
-          { id: '3', text: '' },
-          { id: '4', text: '' },
-        ],
-        correctAnswer: 0,
-        explanation: '',
-      });
+      resetForm();
     } catch (error) {
       setError('Failed to create question');
     }
@@ -94,11 +85,20 @@ export default function CertificationQuestionsPage({ params }: Props) {
         questions: certification.questions?.filter(q => q.id !== questionId) || [],
       };
 
-      await updateCertification(params.id, updatedCertification);
-      await fetchCertification();
+      await updateCertification(certificationId, updatedCertification);
+      await fetchCertification(certificationId);
     } catch (error) {
       setError('Failed to delete question');
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      question: '',
+      choices: Array.from({ length: 4 }, (_, i) => ({ id: String(i + 1), text: '' })),
+      correctAnswer: 0,
+      explanation: '',
+    });
   };
 
   if (error) {
@@ -114,54 +114,31 @@ export default function CertificationQuestionsPage({ params }: Props) {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <Link
-              href="/admin/certifications"
-              className="text-blue-600 hover:text-blue-800 mb-2 inline-block"
-            >
+            <Link href="/admin/certifications" className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
               ← 資格・検定一覧に戻る
             </Link>
             <h1 className="text-2xl font-bold">{certification.name} - 問題管理</h1>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
+          <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             問題を追加
           </button>
         </div>
 
         <div className="space-y-6">
           {certification.questions?.map((question, index) => (
-            <div
-              key={question.id}
-              className="bg-white rounded-lg shadow-sm border p-6"
-            >
+            <div key={question.id} className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold">問題 {index + 1}</h3>
-                <button
-                  onClick={() => handleDeleteQuestion(question.id)}
-                  className="text-red-600 hover:text-red-800"
-                >
+                <button onClick={() => handleDeleteQuestion(question.id)} className="text-red-600 hover:text-red-800">
                   削除
                 </button>
               </div>
               <p className="mb-4">{question.question}</p>
               <div className="space-y-2 mb-4">
                 {question.choices.map((choice, choiceIndex) => (
-                  <div
-                    key={choice.id}
-                    className={`p-3 rounded-lg border ${
-                      choiceIndex === question.correctAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200'
-                    }`}
-                  >
+                  <div key={choice.id} className={`p-3 rounded-lg border ${choiceIndex === question.correctAnswer ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
                     {choice.text}
-                    {choiceIndex === question.correctAnswer && (
-                      <span className="ml-2 text-green-600 text-sm">
-                        ✓ 正解
-                      </span>
-                    )}
+                    {choiceIndex === question.correctAnswer && <span className="ml-2 text-green-600 text-sm">✓ 正解</span>}
                   </div>
                 ))}
               </div>
@@ -179,81 +156,21 @@ export default function CertificationQuestionsPage({ params }: Props) {
               <h2 className="text-2xl font-bold mb-6">問題の追加</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    問題文
-                  </label>
-                  <textarea
-                    value={formData.question}
-                    onChange={(e) =>
-                      setFormData({ ...formData, question: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    rows={3}
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700">問題文</label>
+                  <textarea value={formData.question} onChange={(e) => setFormData({ ...formData, question: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" rows={3} required />
                 </div>
 
                 <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    選択肢
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">選択肢</label>
                   {formData.choices.map((choice, index) => (
                     <div key={choice.id} className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={choice.text}
-                        onChange={(e) => {
-                          const newChoices = [...formData.choices];
-                          newChoices[index].text = e.target.value;
-                          setFormData({ ...formData, choices: newChoices });
-                        }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        placeholder={`選択肢 ${index + 1}`}
-                        required
-                      />
-                      <input
-                        type="radio"
-                        name="correctAnswer"
-                        checked={formData.correctAnswer === index}
-                        onChange={() =>
-                          setFormData({ ...formData, correctAnswer: index })
-                        }
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        required
-                      />
+                      <input type="text" value={choice.text} onChange={(e) => {
+                        const newChoices = [...formData.choices];
+                        newChoices[index].text = e.target.value;
+                        setFormData({ ...formData, choices: newChoices });
+                      }} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder={`選択肢 ${index + 1}`} required />
                     </div>
                   ))}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    解説
-                  </label>
-                  <textarea
-                    value={formData.explanation}
-                    onChange={(e) =>
-                      setFormData({ ...formData, explanation: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    rows={3}
-                    required
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    追加
-                  </button>
                 </div>
               </form>
             </div>

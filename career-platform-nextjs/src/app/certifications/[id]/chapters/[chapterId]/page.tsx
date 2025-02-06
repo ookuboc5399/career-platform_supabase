@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/ui/VideoPlayer';
 import { CertificationChapter, CertificationProgress } from '@/types/api';
 
-export default function ChapterPage({ params }: { params: Promise<{ id: string; chapterId: string }> }) {
+export default function ChapterPage({ params }: { params: { id: string; chapterId: string } }) {
   const router = useRouter();
   const [chapter, setChapter] = useState<CertificationChapter | null>(null);
   const [progress, setProgress] = useState<CertificationProgress | null>(null);
   const [nextChapter, setNextChapter] = useState<CertificationChapter | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId, chapterId } = use(params);
+  const certificationId = params.id;
+  const chapterId = params.chapterId;
 
   useEffect(() => {
     fetchChapter();

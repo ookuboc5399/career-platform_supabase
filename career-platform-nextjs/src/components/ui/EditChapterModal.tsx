@@ -7,7 +7,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { CertificationChapter, CertificationQuestion } from '@/types/api';
 
-type Chapter = Omit<CertificationChapter, 'createdAt' | 'updatedAt' | 'thumbnailUrl' | 'duration' | 'status' | 'description'> & {
+type Chapter = Omit<CertificationChapter, 'createdAt' | 'updatedAt' | 'thumbnailUrl' | 'status' | 'description'> & {
   certificationId: string;
   content: string;
   webText: string;
@@ -26,16 +26,18 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
   const [content, setContent] = useState(chapter.content);
   const [order, setOrder] = useState(chapter.order);
   const [videoUrl, setVideoUrl] = useState(chapter.videoUrl);
+  const [duration, setDuration] = useState(chapter.duration);
   const [webText, setWebText] = useState(chapter.webText);
-  const [questions, setQuestions] = useState(chapter.questions);
+  const [questions, setQuestions] = useState<CertificationQuestion[]>(chapter.questions || []);
 
   useEffect(() => {
     setTitle(chapter.title);
     setContent(chapter.content);
     setOrder(chapter.order);
     setVideoUrl(chapter.videoUrl);
+    setDuration(chapter.duration);
     setWebText(chapter.webText);
-    setQuestions(chapter.questions);
+    setQuestions(chapter.questions || []);
   }, [chapter]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,6 +48,7 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
       content,
       order,
       videoUrl,
+      duration,
       webText,
       questions,
     });
@@ -70,9 +73,15 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
     const newQuestion: CertificationQuestion = {
       id: Math.random().toString(36).substring(2, 15),
       question: '',
-      choices: Array(5).fill('').map(() => ({ id: Math.random().toString(36).substring(2, 15), text: '' })),
+      type: 'text',
+      choices: Array(4).fill(null).map(() => ({
+        id: Math.random().toString(36).substring(2, 15),
+        text: '',
+        type: 'text'
+      })),
       correctAnswer: 0,
       explanation: '',
+      explanationType: 'text'
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -118,7 +127,13 @@ export function EditChapterModal({ isOpen, onClose, onSave, chapter }: EditChapt
             <label className="block text-sm font-medium text-gray-700 mb-2">
               動画
             </label>
-            <VideoUploader onUploadComplete={setVideoUrl} />
+            <VideoUploader 
+              onUploadComplete={(url, videoDuration) => {
+                setVideoUrl(url);
+                setDuration(videoDuration);
+              }}
+              type="certification"
+            />
             {videoUrl && (
               <div className="mt-2 text-sm text-gray-600">
                 現在の動画: {videoUrl}

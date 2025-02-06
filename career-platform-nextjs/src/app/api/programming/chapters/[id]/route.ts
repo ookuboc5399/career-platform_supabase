@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProgrammingChapter, updateProgrammingChapter, deleteProgrammingChapter } from '@/lib/cosmos-db';
+import { updateProgrammingChapter, deleteProgrammingChapter, getProgrammingChapter } from '@/lib/cosmos-db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { chapterId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -16,8 +16,7 @@ export async function GET(
       );
     }
 
-    const chapterId = params.chapterId;
-    const chapter = await getProgrammingChapter(chapterId, languageId);
+    const chapter = await getProgrammingChapter(params.id, languageId);
     if (!chapter) {
       return NextResponse.json(
         { error: 'Chapter not found' },
@@ -35,14 +34,14 @@ export async function GET(
   }
 }
 
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { chapterId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const languageId = searchParams.get('languageId');
-    const chapterId = params.chapterId;
 
     if (!languageId) {
       return NextResponse.json(
@@ -52,44 +51,35 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { title, description, videoUrl, duration, status, exercises } = body;
+    const {
+      title,
+      description,
+      videoUrl,
+      thumbnailUrl,
+      duration,
+      status,
+      exercises,
+    } = body;
 
-    if (!title || !description || !videoUrl || !duration || !status || !exercises) {
+    if (!title || !description || !videoUrl) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    const chapter = await getProgrammingChapter(chapterId, languageId);
-    if (!chapter) {
-      return NextResponse.json(
-        { error: 'Chapter not found' },
-        { status: 404 }
-      );
-    }
-
-    const resource = await updateProgrammingChapter(chapterId, languageId, {
+    const chapter = await updateProgrammingChapter(params.id, languageId, {
       title,
       description,
       videoUrl,
-      duration,
-      status,
-      exercises: exercises || [
-        {
-          id: '1',
-          title: '数値を表示しよう',
-          description: '右のコードエリアで、以下の数値を表示するプログラムを実行してください。',
-          testCases: [
-            {
-              input: '',
-              expectedOutput: '12345'
-            }
-          ]
-        }
-      ],
+      thumbnailUrl: thumbnailUrl || '',
+      duration: duration || '',
+      status: status || 'draft',
+      exercises: exercises || [],
+      updatedAt: new Date().toISOString(),
     });
-    return NextResponse.json(resource);
+
+    return NextResponse.json(chapter);
   } catch (error) {
     console.error('Error updating chapter:', error);
     return NextResponse.json(
@@ -101,12 +91,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { chapterId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const languageId = searchParams.get('languageId');
-    const chapterId = params.chapterId;
 
     if (!languageId) {
       return NextResponse.json(
@@ -115,15 +104,7 @@ export async function DELETE(
       );
     }
 
-    const chapter = await getProgrammingChapter(chapterId, languageId);
-    if (!chapter) {
-      return NextResponse.json(
-        { error: 'Chapter not found' },
-        { status: 404 }
-      );
-    }
-
-    await deleteProgrammingChapter(chapterId, languageId);
+    await deleteProgrammingChapter(params.id, languageId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting chapter:', error);

@@ -1,24 +1,32 @@
 "use client";
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+
+interface Option {
+  text: string;
+  imageUrl: string | null;
+}
 
 interface Question {
   id: string;
   certificationId: string;
   questionNumber: number;
   question: string;
-  options: string[];
+  questionImage: string | null;
+  options: Option[];
   correctAnswers: number[];
   explanation: string;
+  explanationImages: string[];
   year: string;
   category: string;
+  mainCategory: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export default function QuestionSessionPage({ params }: { params: Promise<{ id: string }> }) {
+export default function QuestionSessionPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -26,7 +34,7 @@ export default function QuestionSessionPage({ params }: { params: Promise<{ id: 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId } = use(params);
+  const certificationId = params.id;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,21 +51,19 @@ export default function QuestionSessionPage({ params }: { params: Promise<{ id: 
       }
       console.log('Selected question IDs:', questionIds);
 
-      const response = await fetch(`/api/certifications/${certificationId}`);
-      if (!response.ok) throw new Error('Failed to fetch certification');
-      const certification = await response.json();
+      const response = await fetch(`/api/certifications/${certificationId}/questions`);
+      if (!response.ok) throw new Error('Failed to fetch questions');
+      const allQuestions = await response.json();
 
-      console.log('Certification data:', certification);
+      console.log('All questions:', allQuestions);
 
-      if (!certification.questions) {
-        setError('問題が見つかりません');
+      if (!Array.isArray(allQuestions)) {
+        setError('問題データの形式が不正です');
         return;
       }
 
-      console.log('Questions from database:', certification.questions);
-
       // 選択された問題を収集
-      const selectedQuestions = certification.questions
+      const selectedQuestions = allQuestions
         .filter((question: Question) => questionIds.includes(question.id));
 
       if (selectedQuestions.length === 0) {
@@ -198,7 +204,20 @@ export default function QuestionSessionPage({ params }: { params: Promise<{ id: 
                   }`}
                 >
                   <span className="font-semibold min-w-[24px]">{letter}.</span>
-                  <span className="flex-1">{option}</span>
+                  <span className="flex-1">
+                    <span>{option.text}</span>
+                    {option.imageUrl && (
+                      <div className="mt-2">
+                        <Image
+                          src={option.imageUrl}
+                          alt={`選択肢${letter}の画像`}
+                          width={200}
+                          height={200}
+                          className="rounded-md"
+                        />
+                      </div>
+                    )}
+                  </span>
                   {showResult && isSelected && (
                     <span className="ml-auto">
                       {isCorrect ? (

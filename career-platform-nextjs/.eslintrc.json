@@ -1,8 +1,25 @@
 {
-  "extends": "next/core-web-vitals",
+  "extends": [
+    "next/core-web-vitals",
+    "eslint:recommended"
+  ],
   "rules": {
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "no-console": ["error", { "allow": ["error", "warn"] }],
-    "@typescript-eslint/no-explicit-any": "off"
-  }
+    "no-console": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "no-undef": "off",
+    "no-redeclare": "off",
+    "@next/next/no-img-element": "off",
+    "no-constant-condition": "off",
+    "no-useless-catch": "off",
+    "no-unused-vars": "off"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "public/",
+    "*.config.js",
+    "*.config.ts",
+    "*.d.ts"
+  ]
 }

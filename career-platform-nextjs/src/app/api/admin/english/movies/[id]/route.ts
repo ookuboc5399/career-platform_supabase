@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEnglishMoviesContainer } from '@/lib/cosmos-db';
 import { processYouTubeContent } from '@/lib/azure-movie-processor';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const movieId = params.id;
   try {
     const data = await request.json();
@@ -99,7 +102,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const movieId = params.id;
   try {
     const container = await getEnglishMoviesContainer();

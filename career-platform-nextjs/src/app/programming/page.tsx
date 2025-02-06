@@ -9,10 +9,25 @@ interface Course {
   level: string;
   chapters: number;
   exercises: number;
-  type: 'language' | 'framework';
+  type: 'language' | 'framework' | 'ai-platform';
 }
 
 const courses: Course[] = [
+  {
+    id: 'dify',
+    title: 'Dify入門',
+    description: 'ノーコードでAIアプリケーションを開発できるDifyプラットフォームの使い方を学びます。',
+    icon: '🤖',
+    features: [
+      'AIアプリケーションの設計',
+      'プロンプトエンジニアリング',
+      'APIの活用方法',
+    ],
+    level: '初級',
+    chapters: 5,
+    exercises: 10,
+    type: 'ai-platform',
+  },
   {
     id: 'python',
     title: 'Python入門',
@@ -173,6 +188,17 @@ export default function ProgrammingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {courses
               .filter(course => course.type === 'framework')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">AIアプリ開発プラットフォーム</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'ai-platform')
               .map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}

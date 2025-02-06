@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CertificationChapter, CertificationProgress } from '@/types/api';
 import { CheckCircle } from 'lucide-react';
 
-export default function ChaptersPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ChaptersPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [chapters, setChapters] = useState<CertificationChapter[]>([]);
   const [progress, setProgress] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId } = use(params);
+  const certificationId = params.id;
 
   useEffect(() => {
     fetchChapters();

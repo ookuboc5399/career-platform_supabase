@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProgrammingChapter } from '@/lib/cosmos-db';
 import AddChapterModal from './components/AddChapterModal';
 import EditChapterModal from './components/EditChapterModal';
 
-export default function ChaptersPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function ChaptersPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [chapters, setChapters] = useState<ProgrammingChapter[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -16,7 +17,7 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
   const fetchChapters = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/programming/chapters?languageId=${resolvedParams.id}`);
+      const response = await fetch(`/api/programming/chapters?languageId=${params.id}`);
       if (!response.ok) throw new Error('Failed to fetch chapters');
       const data = await response.json();
       setChapters(data);
@@ -29,7 +30,7 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     fetchChapters();
-  }, [resolvedParams.id]);
+  }, [params.id]);
 
   const moveChapter = async (fromIndex: number, toIndex: number) => {
     const updatedChapters = [...chapters];
@@ -51,7 +52,7 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          languageId: resolvedParams.id,
+          languageId: params.id,
           chapters: reorderedChapters.map(chapter => ({
             id: chapter.id,
             order: chapter.order,
@@ -79,10 +80,19 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/admin/programming')}
+            className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            戻る
+          </button>
           <h1 className="text-2xl font-bold">チャプター管理</h1>
           <p className="text-gray-600 mt-1">
-            {resolvedParams.id.charAt(0).toUpperCase() + resolvedParams.id.slice(1)}の学習コンテンツ
+            {params.id.charAt(0).toUpperCase() + params.id.slice(1)}の学習コンテンツ
           </p>
         </div>
         <button
@@ -200,7 +210,7 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
           setIsAddModalOpen(false);
           fetchChapters();
         }}
-        languageId={resolvedParams.id}
+        languageId={params.id}
       />
 
       {selectedChapter && (
@@ -213,19 +223,21 @@ export default function ChaptersPage({ params }: { params: Promise<{ id: string 
           }}
           onSave={async (data) => {
             try {
-              const response = await fetch(`/api/programming/chapters/${selectedChapter.id}?languageId=${resolvedParams.id}`, {
+              const response = await fetch(`/api/programming/chapters/${selectedChapter.id}?languageId=${params.id}`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                   ...data,
+                  languageId: params.id,
                   updatedAt: new Date().toISOString(),
                 }),
               });
 
               if (!response.ok) {
-                throw new Error('Failed to update chapter');
+                const errorData = await response.json();
+                throw new Error(`Failed to update chapter: ${JSON.stringify(errorData)}`);
               }
 
               setIsEditModalOpen(false);

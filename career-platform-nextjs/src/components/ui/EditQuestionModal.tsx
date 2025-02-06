@@ -4,11 +4,20 @@ import { useEffect, useState } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { RichTextEditor } from './RichTextEditor';
+import Image from 'next/image';
+
+interface Option {
+  text: string;
+  imageUrl: string | null;
+}
 
 interface Question {
   id: string;
+  certificationId: string;
+  questionNumber: number;
   question: string;
-  options: string[];
+  questionImage: string | null;
+  options: Option[];
   correctAnswers: number[];
   explanation: string;
   explanationImages: string[];
@@ -18,7 +27,12 @@ interface Question {
   };
   year: string;
   category: string;
+  mainCategory: string;
 }
+
+type CategoryMap = {
+  [key: string]: string[];
+};
 
 interface EditQuestionModalProps {
   isOpen: boolean;
@@ -29,7 +43,16 @@ interface EditQuestionModalProps {
 
 export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQuestionModalProps) {
   const [questionText, setQuestionText] = useState(question.question);
-  const [options, setOptions] = useState<string[]>(question.options);
+  const [questionImage, setQuestionImage] = useState<string | null>(question.questionImage);
+  const [options, setOptions] = useState<Option[]>(
+    Array.isArray(question.options) 
+      ? question.options.map(opt => 
+          typeof opt === 'string' 
+            ? { text: opt, imageUrl: null }
+            : opt
+        )
+      : []
+  );
   const [correctAnswers, setCorrectAnswers] = useState<number[]>(question.correctAnswers);
   const [explanation, setExplanation] = useState(question.explanation);
   const [explanationImages, setExplanationImages] = useState<string[]>(question.explanationImages);
@@ -46,40 +69,71 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   const years = [
     'H21年春', 'H21年秋', 'H22年春', 'H22年秋', 'H23年春', 'H23年秋', 'H24年春', 'H24年秋',
     'H25年春', 'H25年秋', 'H26年春', 'H26年秋', 'H27年春', 'H27年秋', 'H28年春', 'H28年秋',
-    'H29年春', 'H29年秋', 'H30年春', 'H30年秋', 'H31年春', 'R1年秋', 'R2年春', 'R3年春',
-    'R4年春'
+    'H29年春', 'H29年秋', 'H30年春', 'H30年秋', 'H31年春', 'R1年秋', 'R2年春', 'R2年秋',
+    'R3年春', 'R3年秋', 'R4年春', 'R4年秋', 'R5年春', 'R5年秋'
   ];
 
-  type MainCategory = 
-    | '企業と法務'
-    | '経営戦略'
-    | 'システム戦略'
-    | '開発技術'
-    | 'プロジェクトマネジメント'
-    | 'サービスマネジメント'
-    | '基礎理論'
-    | 'コンピュータシステム';
-
-  const categories: Record<MainCategory, string[]> = {
-    '企業と法務': ['企業活動', '法務'],
-    '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ'],
-    'システム戦略': ['システム戦略', 'システム企画'],
-    '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
-    'プロジェクトマネジメント': ['プロジェクトマネジメント'],
-    'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
-    '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
-    'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
+  const getAvailableCategories = (): CategoryMap => {
+    if (question.certificationId === '7') { // ITパスポート
+      return {
+        'ストラテジ系': ['企業と法務', '経営戦略', 'システム戦略'],
+        'マネジメント系': ['開発技術', 'プロジェクトマネジメント', 'サービスマネジメント'],
+        'テクノロジ系': ['基礎理論', 'コンピュータシステム', '技術要素']
+      };
+    } else if (question.certificationId === 'e29446b8-60d1-4336-a057-0d0b2269895c') { // AWS
+      return {
+        'コンピューティング': ['EC2', 'Lambda', 'ECS', 'FSx', 'Storage Gateway'],
+        'AWSクラウドの基本': ['オンプレミスとクラウド', 'AWSの概要'],
+        'ストレージ': ['S3', 'EBS', 'EFS'],
+        'データベース': ['RDS', 'DynamoDB', 'Aurora'],
+        'ネットワーキング': ['VPC', 'Route53', 'CloudFront', 'Direct Connect'],
+        'アプリケーション統合': ['SQS', 'SNS'],
+        'セキュリティ': ['IAM', 'WAF', 'Shield'],
+        '分析': ['Kinesis', 'Glue', 'Athena'],
+        '機械学習': ['Comprehend', 'Transcribe', 'Textract']
+      };
+    } else if (question.certificationId === '9') { // 応用情報
+      return {
+        'テクノロジ': ['基礎理論', 'コンピュータシステム', 'データベース'],
+        'マネジメント': ['プロジェクトマネジメント', 'サービスマネジメント'],
+        'ストラテジ': ['システム戦略', 'システム企画', '経営戦略']
+      };
+    } else if (question.certificationId === '10') { // 情報セキュリティマネジメント
+      return {
+        '科目A': ['基礎理論'],
+        '科目B': ['基礎理論']
+      };
+    } else {
+      return {
+        'システム戦略': ['システム戦略', 'システム企画'],
+        '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
+        'プロジェクトマネジメント': ['プロジェクトマネジメント'],
+        'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
+        '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
+        'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
+      };
+    }
   };
 
-  const [mainCategory, setMainCategory] = useState<MainCategory | ''>(
-    (Object.keys(categories).find(key => 
-      categories[key as MainCategory].includes(question.category)
-    ) as MainCategory) || ''
+  const [categories] = useState<CategoryMap>(getAvailableCategories());
+  const [mainCategory, setMainCategory] = useState<string>(
+    Object.keys(categories).find(key => 
+      categories[key].includes(question.category)
+    ) || ''
   );
 
   useEffect(() => {
     setQuestionText(question.question);
-    setOptions(question.options);
+    setQuestionImage(question.questionImage);
+    setOptions(
+      Array.isArray(question.options)
+        ? question.options.map(opt =>
+            typeof opt === 'string'
+              ? { text: opt, imageUrl: null }
+              : opt
+          )
+        : []
+    );
     setCorrectAnswers(question.correctAnswers);
     setExplanation(question.explanation);
     setExplanationImages(question.explanationImages);
@@ -96,12 +150,16 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
     const data = {
       ...question,
       question: questionText,
-      options: options.filter(opt => opt.trim() !== ''),
+      questionImage,
+      options: options.filter(opt => opt.text.trim() !== ''),
       correctAnswers,
       explanation,
       explanationImages,
       year,
       category,
+      mainCategory,
+      certificationId: question.certificationId,
+      questionNumber: question.questionNumber,
       ...(hasTable && {
         explanationTable: {
           headers: tableHeaders.filter(h => h.trim() !== ''),
@@ -115,8 +173,34 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
-    newOptions[index] = value;
+    newOptions[index] = { ...newOptions[index], text: value };
     setOptions(newOptions);
+  };
+
+  const handleOptionImageChange = async (index: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', 'question-option-image');
+    try {
+      console.log('Uploading option image:', file.name);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Upload error response:', errorData);
+        throw new Error(`Failed to upload option image: ${errorData.error || 'Unknown error'}`);
+      }
+      if (!response.ok) throw new Error('Failed to upload image');
+      const data = await response.json();
+      const newOptions = [...options];
+      newOptions[index] = { ...newOptions[index], imageUrl: data.url };
+      setOptions(newOptions);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('画像のアップロードに失敗しました');
+    }
   };
 
   const toggleCorrectAnswer = (index: number) => {
@@ -169,7 +253,7 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                 <select
                   value={mainCategory}
                   onChange={(e) => {
-                    setMainCategory(e.target.value as MainCategory);
+                    setMainCategory(e.target.value);
                     setCategory(''); // サブカテゴリーをリセット
                   }}
                   className="w-full p-2 border rounded"
@@ -212,6 +296,54 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                 placeholder="問題文を入力してください"
               />
             </div>
+            {/* 問題画像 */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">
+                問題画像（任意）
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('type', 'certification-image');
+                    try {
+                      console.log('Uploading question image:', file.name);
+                      const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData,
+                      });
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error('Upload error response:', errorData);
+                        throw new Error(`Failed to upload question image: ${errorData.error || 'Unknown error'}`);
+                      }
+                      if (!response.ok) throw new Error('Failed to upload image');
+                      const data = await response.json();
+                      setQuestionImage(data.url);
+                    } catch (error) {
+                      console.error('Error uploading image:', error);
+                      alert('画像のアップロードに失敗しました');
+                    }
+                  }
+                }}
+                className="w-full"
+              />
+              {questionImage && (
+                <div className="mt-2">
+                  <Image
+                    src={questionImage}
+                    alt="問題画像"
+                    width={200}
+                    height={200}
+                    className="rounded-md"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg border shadow-sm">
@@ -235,11 +367,36 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                     </div>
                     <input
                       type="text"
-                      value={option}
+                      value={option.text}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
                       placeholder="選択肢の内容を入力してください"
                       className="w-full p-2 border rounded bg-white"
                     />
+                    {/* 選択肢の画像 */}
+                    <div className="mt-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleOptionImageChange(index, file);
+                          }
+                        }}
+                        className="w-full"
+                      />
+                      {option.imageUrl && (
+                        <div className="mt-2">
+                          <Image
+                            src={option.imageUrl}
+                            alt={`選択肢${index + 1}の画像`}
+                            width={200}
+                            height={200}
+                            className="rounded-md"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

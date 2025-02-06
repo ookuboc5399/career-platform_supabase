@@ -7,7 +7,18 @@ export async function POST(request: NextRequest) {
     if (!certificationQuestionsContainer) await initializeDatabase();
     
     const body = await request.json();
-    const { certificationId, question, questionImage, options, correctAnswers, explanation, explanationImage, year, category } = body;
+    const { 
+      certificationId, 
+      question, 
+      questionImage, 
+      options, 
+      correctAnswers, 
+      explanation, 
+      explanationImage, 
+      year, 
+      category,
+      mainCategory 
+    } = body;
 
     // 既存の問題をカウント
     const { resources: existingQuestions } = await certificationQuestionsContainer.items
@@ -26,12 +37,17 @@ export async function POST(request: NextRequest) {
       certificationId,
       questionNumber,
       question,
-      options,
+      questionImage: questionImage || null,
+      options: options.map((opt: { text: string; imageUrl: string }) => ({
+        text: opt.text,
+        imageUrl: opt.imageUrl || null
+      })),
       correctAnswers,
       explanation,
       explanationImages: explanationImage ? [explanationImage] : [],
       year,
       category,
+      mainCategory,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

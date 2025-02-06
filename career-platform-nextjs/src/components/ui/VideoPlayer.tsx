@@ -125,23 +125,19 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
       setIsPlaying(false);
     }
 
-    // 動画の長さを取得
     setDuration(player.getDuration());
 
-    // 定期的に進捗を更新
     const interval = setInterval(() => {
       if (player.getCurrentTime) {
         const currentTime = player.getCurrentTime();
         const progress = (currentTime / player.getDuration()) * 100;
         setProgress(progress);
 
-        // 字幕の更新
         const subtitle = subtitles.find(
           sub => currentTime >= sub.startTime && currentTime <= sub.endTime
         );
         setCurrentSubtitle(subtitle || null);
 
-        // 95%以上再生されたら完了
         if (progress >= 95 && onComplete && !completed) {
           onComplete();
         }
@@ -159,14 +155,12 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
       const progress = (video.currentTime / video.duration) * 100;
       setProgress(progress);
 
-      // 字幕の更新
       const currentTime = video.currentTime;
       const subtitle = subtitles.find(
         (sub: Subtitle) => currentTime >= sub.startTime && currentTime <= sub.endTime
       );
       setCurrentSubtitle(subtitle || null);
 
-      // 動画が95%以上再生されたら完了とみなす
       if (progress >= 95 && onComplete && !completed) {
         onComplete();
       }
@@ -205,13 +199,13 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
   };
 
   return (
-    <div className="relative group">
+    <div className="relative group aspect-video">
       {isLoading ? (
-        <div className="flex justify-center items-center h-64 bg-gray-100">
+        <div className="flex justify-center items-center h-full bg-gray-100">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
         </div>
       ) : error ? (
-        <div className="flex flex-col justify-center items-center h-64 bg-gray-100 p-4">
+        <div className="flex flex-col justify-center items-center h-full bg-gray-100 p-4">
           <div className="text-red-500 text-center mb-2">動画の読み込みに失敗しました</div>
           <div className="text-sm text-gray-600 text-center break-all">
             {error}
@@ -227,18 +221,7 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
             再試行
           </button>
         </div>
-      ) : videoUrl && (
-        <video
-          ref={videoRef}
-          className="w-full h-full"
-          onClick={togglePlay}
-        >
-          <source src={videoUrl} type="video/mp4" />
-          お使いのブラウザは動画の再生に対応していません。
-        </video>
-      )}
-
-      {isYouTube ? (
+      ) : isYouTube ? (
         <YouTube
           videoId={getYouTubeId(url)}
           opts={{
@@ -257,14 +240,13 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
         <>
           <video
             ref={videoRef}
-            className="w-full h-full"
+            className="w-full h-full object-contain"
             onClick={togglePlay}
           >
             <source src={videoUrl} type="video/mp4" />
             お使いのブラウザは動画の再生に対応していません。
           </video>
 
-          {/* コントロールオーバーレイ */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
             <button
               onClick={togglePlay}
@@ -284,7 +266,6 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
         </>
       )}
 
-      {/* プログレスバー */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
         <div
           className="h-full bg-blue-500"
@@ -292,12 +273,10 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
         />
       </div>
 
-      {/* 時間表示 */}
       <div className="absolute bottom-2 right-2 text-white text-sm bg-black bg-opacity-50 px-2 py-1 rounded">
         {formatTime(videoRef.current?.currentTime || 0)} / {formatTime(duration)}
       </div>
 
-      {/* 字幕表示 */}
       {currentSubtitle && (
         <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center">
           <div className="bg-black bg-opacity-70 text-white px-4 py-2 rounded text-lg max-w-[80%] text-center">
@@ -309,7 +288,6 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
         </div>
       )}
 
-      {/* 完了バッジ */}
       {completed && (
         <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
           完了

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import VideoPlayer from '@/components/ui/VideoPlayer';
 
@@ -21,15 +21,14 @@ interface Chapter {
   }[];
 }
 
-export default function ChapterPage({ params }: { params: Promise<{ id: string; chapterId: string }> }) {
-  const resolvedParams = use(params);
+export default function ChapterPage({ params }: { params: { id: string; chapterId: string } }) {
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchChapter = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/programming/chapters/${resolvedParams.chapterId}?languageId=${resolvedParams.id}`);
+      const response = await fetch(`/api/programming/chapters/${params.chapterId}?languageId=${params.id}`);
       if (!response.ok) throw new Error('Failed to fetch chapter');
       const data = await response.json();
       setChapter(data);
@@ -42,7 +41,7 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string; 
 
   useEffect(() => {
     fetchChapter();
-  }, [resolvedParams.id, resolvedParams.chapterId]);
+  }, [params.id, params.chapterId]);
 
   if (isLoading) {
     return (
@@ -62,34 +61,41 @@ export default function ChapterPage({ params }: { params: Promise<{ id: string; 
 
   return (
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
+        <div className="flex items-center gap-4 mb-8">
+          <Link
+            href={`/programming/${params.id}`}
+            className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            戻る
+          </Link>
           <h1 className="text-3xl font-bold mb-2">{chapter.title}</h1>
           <p className="text-gray-600">{chapter.description}</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="w-full max-w-3xl mb-8">
           <VideoPlayer url={chapter.videoUrl} />
-          
-          {chapter.exercises && chapter.exercises.length > 0 && (
-            <div className="p-6 border-t bg-gray-50">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">演習問題</h3>
-                  <p className="text-gray-600">このチャプターには {chapter.exercises.length} 問の演習問題があります</p>
-                </div>
-                <Link
-                  href={`/programming/${resolvedParams.id}/chapters/${resolvedParams.chapterId}/exercises`}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-md"
-                >
-                  <span>演習問題へ進む</span>
-                  <span className="text-sm bg-blue-500 px-2 py-1 rounded-md">
-                    {chapter.exercises.length}問
-                  </span>
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
+          
+        {chapter.exercises && chapter.exercises.length > 0 && (
+          <div className="flex justify-between items-center max-w-3xl">
+            <div>
+              <h3 className="text-lg font-semibold">演習問題</h3>
+              <p className="text-gray-600">このチャプターには {chapter.exercises.length} 問の演習問題があります</p>
+            </div>
+            <Link
+              href={`/programming/${params.id}/chapters/${params.chapterId}/exercises`}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-md"
+            >
+              <span>演習問題へ進む</span>
+              <span className="text-sm bg-blue-500 px-2 py-1 rounded-md">
+                {chapter.exercises.length}問
+              </span>
+            </Link>
+          </div>
+        )}
       </div>
   );
 }

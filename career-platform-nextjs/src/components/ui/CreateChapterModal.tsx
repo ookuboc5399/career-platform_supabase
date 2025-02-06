@@ -11,7 +11,15 @@ import { CertificationQuestion } from '@/types/api';
 interface CreateChapterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; content: string; order: number; videoUrl: string; webText: string; questions: CertificationQuestion[] }) => void;
+  onSave: (data: { 
+    title: string; 
+    content: string; 
+    order: number; 
+    videoUrl: string; 
+    duration: string;
+    webText: string; 
+    questions: CertificationQuestion[] 
+  }) => void;
   currentMaxOrder: number;
 }
 
@@ -24,6 +32,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
   const [content, setContent] = useState('');
   const [order, setOrder] = useState(currentMaxOrder + 1);
   const [videoUrl, setVideoUrl] = useState('');
+  const [duration, setDuration] = useState('');
   const [webText, setWebText] = useState('');
   const [questions, setQuestions] = useState<Question[]>([{
     question: '',
@@ -46,6 +55,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     setContent('');
     setOrder(currentMaxOrder + 1);
     setVideoUrl('');
+    setDuration('');
     setWebText('');
     setQuestions([{
       question: '',
@@ -91,6 +101,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
       content,
       order,
       videoUrl,
+      duration,
       webText,
       questions: convertQuestions(questions),
     });
@@ -142,6 +153,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
         content: chapter.content,
         order: currentMaxOrder + index + 1,
         videoUrl: '',
+        duration: '',
         webText: chapter.webText,
         questions: convertQuestions(chapter.questions),
       });
@@ -273,7 +285,10 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
               動画
             </label>
             <VideoUploader 
-              onUploadComplete={setVideoUrl} 
+              onUploadComplete={(url, videoDuration) => {
+                setVideoUrl(url);
+                setDuration(videoDuration);
+              }}
               type="certification"
             />
             {videoUrl && (

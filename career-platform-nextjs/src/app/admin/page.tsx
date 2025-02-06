@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import ImageToTextConverter from '@/components/ui/ImageToTextConverter';
 
 export default function AdminPage() {
   return (
@@ -64,6 +65,21 @@ export default function AdminPage() {
             </div>
             <p className="text-gray-600">
               大学情報・MBAプログラム情報の管理
+            </p>
+          </div>
+        </Link>
+
+        {/* OCR機能 */}
+        <Link href="/admin/ocr" className="block">
+          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">OCR機能</h2>
+              <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-gray-600">
+              画像からテキストを抽出
             </p>
           </div>
         </Link>

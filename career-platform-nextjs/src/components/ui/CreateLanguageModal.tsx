@@ -15,12 +15,25 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
   const [id, setId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'language' | 'framework'>('language');
+  const [type, setType] = useState<'language' | 'framework' | 'ai-platform'>('language');
+
+  const generateId = (title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // 英数字以外をハイフンに変換
+      .replace(/^-+|-+$/g, ''); // 先頭と末尾のハイフンを削除
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    setId(generateId(newTitle));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      id: id.toLowerCase(),
+      id: id || generateId(title),
       title,
       description,
       type,
@@ -44,12 +57,13 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as 'language' | 'framework')}
+              onChange={(e) => setType(e.target.value as 'language' | 'framework' | 'ai-platform')}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             >
               <option value="language">プログラミング言語</option>
               <option value="framework">フレームワーク</option>
+              <option value="ai-platform">AIアプリ開発プラットフォーム</option>
             </select>
           </div>
 
@@ -74,7 +88,7 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={handleTitleChange}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />

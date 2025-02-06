@@ -160,22 +160,22 @@ export default function CertificationsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredCertifications.map((certification) => (
           <div
             key={certification.id}
-            className="bg-white rounded-lg shadow-lg overflow-hidden relative"
+            className="bg-white rounded-lg shadow-lg overflow-hidden relative h-[320px] flex flex-col"
           >
             <div className="absolute top-4 right-4">
               <div className="text-2xl">
                 {categories.find(cat => cat.id === certification.category)?.icon}
               </div>
             </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <h2 className="text-xl font-bold mb-2">{certification.name}</h2>
-                <p className="text-gray-600 mb-4">{certification.description}</p>
-                <div className="flex items-center space-x-2 mb-2">
+            <div className="p-6 flex-1">
+              <div>
+                <h2 className="text-xl font-bold mb-2 line-clamp-1">{certification.name}</h2>
+                <p className="text-gray-600 mb-4 line-clamp-2 h-12">{certification.description}</p>
+                <div className="flex items-center space-x-2 mb-4">
                   <span className={`px-2 py-1 rounded text-sm ${
                     certification.difficulty === 'beginner'
                       ? 'bg-green-100 text-green-800'
@@ -194,8 +194,8 @@ export default function CertificationsPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center">
+              <div className="mt-auto">
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     onClick={() => handleEdit(certification)}
                     variant="outline"
@@ -203,26 +203,27 @@ export default function CertificationsPage() {
                   >
                     編集
                   </Button>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handleManageChapters(certification.id)}
-                      variant="outline"
-                    >
-                      チャプター管理
-                    </Button>
-                    <Button
-                      onClick={() => router.push(`/admin/certifications/${certification.id}/questions`)}
-                      variant="outline"
-                    >
-                      総合問題管理
-                    </Button>
-                    <Button
-                      onClick={() => handleDelete(certification.id)}
-                      variant="destructive"
-                    >
-                      削除
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => handleDelete(certification.id)}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    削除
+                  </Button>
+                  <Button
+                    onClick={() => handleManageChapters(certification.id)}
+                    variant="outline"
+                    className="col-span-2"
+                  >
+                    チャプター管理
+                  </Button>
+                  <Button
+                    onClick={() => router.push(`/admin/certifications/${certification.id}/questions`)}
+                    variant="outline"
+                    className="col-span-2"
+                  >
+                    総合問題管理
+                  </Button>
                 </div>
               </div>
             </div>

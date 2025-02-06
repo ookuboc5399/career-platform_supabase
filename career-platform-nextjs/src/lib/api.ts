@@ -30,6 +30,20 @@ const createApiInstance = () => {
 
 const api = createApiInstance();
 
+// お問い合わせフォーム送信
+export async function submitContactForm(data: {
+  name: string;
+  email: string;
+  message: string;
+}): Promise<void> {
+  try {
+    await api.post('/api/contact', data);
+  } catch (error) {
+    console.error('Failed to submit contact form:', error);
+    throw new Error('Failed to submit contact form');
+  }
+}
+
 // ファイルアップロード関連
 export async function uploadFile(file: File, type: string): Promise<string> {
   try {
@@ -68,6 +82,18 @@ export async function deleteFile(containerName: string, url: string): Promise<vo
   });
 }
 
+// ブログ関連
+export async function getBlogPosts() {
+  const response = await api.get('/api/blog');
+  return response.data;
+}
+
+// サービス関連
+export async function getServices() {
+  const response = await api.get('/api/services');
+  return response.data;
+}
+
 // 資格学習関連
 export async function getCertifications(): Promise<Certification[]> {
   const response = await api.get('/api/certifications');
@@ -104,9 +130,7 @@ export async function getChaptersByCertificationId(certificationId: string): Pro
 }
 
 export async function createChapter(certificationId: string, data: Omit<CertificationChapter, 'id'>): Promise<CertificationChapter> {
-  console.log('Creating chapter with data:', { certificationId, data });
   const response = await api.post(`/api/certifications/${certificationId}/chapters`, data);
-  console.log('Create chapter response:', response.data);
   return response.data;
 }
 
@@ -187,7 +211,6 @@ export async function getEnglishContent(): Promise<EnglishContent[]> {
     const response = await api.get('/api/english');
     return response.data;
   } catch (error) {
-    console.error('Failed to fetch English content:', error);
     throw new Error('Failed to fetch English content');
   }
 }
@@ -197,7 +220,6 @@ export async function getEnglishContentById(id: string): Promise<EnglishContent>
     const response = await api.get(`/api/english/${id}`);
     return response.data;
   } catch (error) {
-    console.error(`Failed to fetch English content with ID ${id}:`, error);
     throw new Error('Failed to fetch English content');
   }
 }
@@ -207,7 +229,6 @@ export async function createEnglishContent(data: Omit<EnglishContent, 'id' | 'cr
     const response = await api.post('/api/english', data);
     return response.data;
   } catch (error) {
-    console.error('Failed to create English content:', error);
     throw new Error('Failed to create English content');
   }
 }
@@ -217,7 +238,6 @@ export async function updateEnglishContent(id: string, data: Partial<EnglishCont
     const response = await api.put(`/api/english/${id}`, data);
     return response.data;
   } catch (error) {
-    console.error('Failed to update English content:', error);
     throw new Error('Failed to update English content');
   }
 }
@@ -226,7 +246,6 @@ export async function deleteEnglishContent(id: string): Promise<void> {
   try {
     await api.delete(`/api/english/${id}`);
   } catch (error) {
-    console.error('Failed to delete English content:', error);
     throw new Error('Failed to delete English content');
   }
 }
@@ -240,7 +259,6 @@ export async function updateEnglishProgress(userId: string, lessonId: string, da
     });
     return response.data;
   } catch (error) {
-    console.error('Failed to update English progress:', error);
     throw new Error('Failed to update English progress');
   }
 }

@@ -20,15 +20,14 @@ interface Chapter {
   }[];
 }
 
-export default function ProgrammingPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
+export default function ProgrammingPage({ params }: { params: { id: string } }) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchChapters = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/programming/chapters?languageId=${resolvedParams.id}`);
+      const response = await fetch(`/api/programming/chapters?languageId=${params.id}`);
       if (!response.ok) throw new Error('Failed to fetch chapters');
       const data = await response.json();
       console.log('Fetched chapters:', data);
@@ -43,7 +42,7 @@ export default function ProgrammingPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     fetchChapters();
-  }, [resolvedParams.id]);
+  }, [params.id]);
 
   if (isLoading) {
     return (
@@ -56,11 +55,20 @@ export default function ProgrammingPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
+        <Link
+          href="/programming"
+          className="flex items-center gap-1 text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          戻る
+        </Link>
         <h1 className="text-3xl font-bold">
-          {resolvedParams.id.charAt(0).toUpperCase() + resolvedParams.id.slice(1)}プログラミング学習
+          {params.id.charAt(0).toUpperCase() + params.id.slice(1)}プログラミング学習
         </h1>
         <p className="text-gray-600 mt-2">
-          ステップバイステップで{resolvedParams.id.charAt(0).toUpperCase() + resolvedParams.id.slice(1)}プログラミングを学びましょう
+          ステップバイステップで{params.id.charAt(0).toUpperCase() + params.id.slice(1)}プログラミングを学びましょう
         </p>
       </div>
 
@@ -94,7 +102,7 @@ export default function ProgrammingPage({ params }: { params: Promise<{ id: stri
                         演習問題: {chapter.exercises?.length || 0}問
                       </div>
                       <Link
-                        href={`/programming/${resolvedParams.id}/chapters/${chapter.id}`}
+                        href={`/programming/${params.id}/chapters/${chapter.id}`}
                         className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       >
                         学習を始める

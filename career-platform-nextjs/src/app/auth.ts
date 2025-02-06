@@ -1,6 +1,7 @@
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import GithubProvider from "next-auth/providers/github";
+import React from "react";
 
 declare module "next-auth" {
   interface Session {

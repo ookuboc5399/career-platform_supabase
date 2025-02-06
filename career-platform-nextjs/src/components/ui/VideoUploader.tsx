@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Button } from './button';
 
 export interface VideoUploaderProps {
-  onUpload: (url: string) => void | Promise<void>;
+  onUploadComplete: (url: string, duration: string) => void | Promise<void>;
   type?: 'certification' | 'programming' | 'english';
   disabled?: boolean;
 }
 
-export function VideoUploader({ onUpload, type = 'certification', disabled = false }: VideoUploaderProps) {
+export function VideoUploader({ onUploadComplete, type = 'certification', disabled = false }: VideoUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ export function VideoUploader({ onUpload, type = 'certification', disabled = fal
       }
 
       const data = await response.json();
-      await onUpload(data.url);
+      await onUploadComplete(data.url, data.duration);
     } catch (error) {
       console.error('Error uploading video:', error);
       setError(error instanceof Error ? error.message : 'Failed to upload video');

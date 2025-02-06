@@ -25,7 +25,7 @@ interface FilterOptions {
   subCategories: Set<string>;
 }
 
-export default function QuestionsPage({ params }: { params: Promise<{ id: string }> }) {
+export default function QuestionsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
@@ -41,7 +41,7 @@ export default function QuestionsPage({ params }: { params: Promise<{ id: string
   });
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId } = use(params);
+  const certificationId = params.id;
 
   useEffect(() => {
     fetchQuestions();

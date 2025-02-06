@@ -102,12 +102,58 @@ export async function initializeDatabase() {
     englishMoviesContainer = containers[10].container;
     englishBusinessContainer = containers[11].container;
     settingsContainer = containers[12].container;
-
-    console.log('Database and containers initialized successfully');
   } catch (error) {
-    console.error('Error initializing database:', error);
     throw error;
   }
+}
+
+// 資格関連の関数
+export async function getCertificationChapters(certificationId: string) {
+  if (!certificationChaptersContainer) await initializeDatabase();
+  const { resources } = await certificationChaptersContainer.items
+    .query({
+      query: 'SELECT * FROM c WHERE c.certificationId = @certificationId',
+      parameters: [{ name: '@certificationId', value: certificationId }],
+    })
+    .fetchAll();
+  return resources;
+}
+
+export async function createCertificationChapter(data: any) {
+  if (!certificationChaptersContainer) await initializeDatabase();
+  const { resource } = await certificationChaptersContainer.items.create(data);
+  return resource;
+}
+
+export async function getCertificationChapter(chapterId: string) {
+  if (!certificationChaptersContainer) await initializeDatabase();
+  const { resources } = await certificationChaptersContainer.items
+    .query({
+      query: 'SELECT * FROM c WHERE c.id = @chapterId',
+      parameters: [{ name: '@chapterId', value: chapterId }],
+    })
+    .fetchAll();
+  return resources[0];
+}
+
+export async function createCertificationQuestionProgress(data: any) {
+  if (!certificationQuestionsProgressContainer) await initializeDatabase();
+  const { resource } = await certificationQuestionsProgressContainer.items.create(data);
+  return resource;
+}
+
+export async function getCertificationQuestionProgress(userId: string, certificationId: string) {
+  if (!certificationQuestionsProgressContainer) await initializeDatabase();
+  const { resources } = await certificationQuestionsProgressContainer.items
+    .query({
+      query: 'SELECT * FROM c WHERE c.userId = @userId AND c.certificationId = @certificationId',
+      parameters: [
+        { name: '@userId', value: userId },
+        { name: '@certificationId', value: certificationId },
+      ],
+    })
+    .fetchAll();
+  return resources[0];
 }
 
 // プログラミング言語関連の型定義
@@ -115,7 +161,7 @@ export interface ProgrammingLanguage {
   id: string;
   title: string;
   description: string;
-  type: 'language' | 'framework';
+  type: 'language' | 'framework' | 'ai-platform';
   createdAt: string;
   updatedAt: string;
 }
@@ -148,7 +194,7 @@ export async function getProgrammingLanguages() {
   if (!programmingContainer) await initializeDatabase();
   const { resources } = await programmingContainer.items
     .query({
-      query: 'SELECT * FROM c WHERE c.type IN ("language", "framework")',
+      query: 'SELECT * FROM c WHERE c.type IN ("language", "framework", "ai-platform")',
     })
     .fetchAll();
   return resources as ProgrammingLanguage[];
@@ -164,6 +210,40 @@ export async function createProgrammingLanguage(data: Omit<ProgrammingLanguage, 
   };
   const { resource } = await programmingContainer.items.create(language);
   return resource as ProgrammingLanguage;
+}
+
+// 初期データをインポートするためのユーティリティ関数
+export async function importInitialProgrammingLanguages() {
+  if (!programmingContainer) await initializeDatabase();
+  
+  const initialLanguages: Omit<ProgrammingLanguage, 'createdAt' | 'updatedAt'>[] = [
+    {
+      id: 'python',
+      title: 'Python入門',
+      description: 'Pythonプログラミングの基礎から応用までを学ぶコース',
+      type: 'language' as const,
+    },
+    {
+      id: 'javascript',
+      title: 'JavaScript入門',
+      description: 'Web開発に必要なJavaScriptの基礎を学ぶコース',
+      type: 'language' as const,
+    },
+    {
+      id: 'react',
+      title: 'React入門',
+      description: 'モダンなWebフロントエンド開発のためのReactフレームワーク',
+      type: 'framework' as const,
+    },
+  ];
+
+  for (const language of initialLanguages) {
+    try {
+      await createProgrammingLanguage(language);
+    } catch (error) {
+      console.error(`Error importing ${language.id}:`, error);
+    }
+  }
 }
 
 // プログラミングチャプター関連の操作関数
