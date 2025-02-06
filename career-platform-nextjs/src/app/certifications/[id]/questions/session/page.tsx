@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
 interface Option {
@@ -181,6 +182,17 @@ export default function QuestionSessionPage({ params }: { params: { id: string }
             {currentQuestion.category}
           </div>
           <p className="text-lg font-medium mb-6">{currentQuestion.question}</p>
+          {currentQuestion.questionImage && (
+            <div className="mb-6">
+              <Image
+                src={currentQuestion.questionImage}
+                alt="問題の画像"
+                width={400}
+                height={300}
+                className="rounded-md"
+              />
+            </div>
+          )}
           <div className="space-y-4">
             {currentQuestion.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index);
@@ -262,6 +274,21 @@ export default function QuestionSessionPage({ params }: { params: { id: string }
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="font-medium text-gray-700 mb-2">解説:</p>
               <p className="text-gray-600">{currentQuestion.explanation}</p>
+              {currentQuestion.explanationImages && currentQuestion.explanationImages.length > 0 && (
+                <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
+                  {currentQuestion.explanationImages.map((imageUrl, index) => (
+                    <div key={index}>
+                      <Image
+                        src={imageUrl}
+                        alt={`解説画像 ${index + 1}`}
+                        width={300}
+                        height={200}
+                        className="rounded-md"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
