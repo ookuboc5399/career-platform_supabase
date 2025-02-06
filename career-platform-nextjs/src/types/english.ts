@@ -91,6 +91,28 @@ export interface Question {
   createdAt: string;
 }
 
+export interface NewsContent {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  category: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  tags: string[];
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+  originalTitle?: string;
+  originalContent?: string;
+  vocabulary?: {
+    word: string;
+    meaning: string;
+    example: string;
+  }[];
+}
+
 export interface ConversationTopic {
   id: string;
   title: string;

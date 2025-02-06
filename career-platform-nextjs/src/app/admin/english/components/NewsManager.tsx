@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { VideoUploader } from "@/components/ui/VideoUploader";
+import  ImageUploader from "@/components/ui/ImageUploader";
 import { NewsContent } from '@/types/english';
 import axios from 'axios';
 
@@ -13,11 +15,21 @@ interface GenerationProgress {
 }
 
 export default function NewsManager() {
-  const [news, setNews] = useState<NewsContent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [news, setNews] = useState<(NewsContent & {
+    publishedAt?: string;
+    conversation?: string;
+    audioUrl?: string;
+  })[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsContent & {
+    publishedAt?: string;
+    conversation?: string;
+    audioUrl?: string;
+  } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchNews = async () => {
     try {
@@ -31,7 +43,7 @@ export default function NewsManager() {
       console.error('Error fetching news:', error);
       handleError(error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -205,7 +217,7 @@ export default function NewsManager() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
@@ -221,13 +233,250 @@ export default function NewsManager() {
       <div className="flex flex-col space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">ニュース管理</h2>
-          <Button 
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? '生成中...' : 'ニュースを生成'}
-          </Button>
+          <div className="space-x-2">
+            <Button
+              onClick={() => setSelectedNews({
+                id: '',
+                title: '',
+                description: '',
+                content: '',
+                category: 'world',
+                level: 'intermediate',
+                tags: [],
+                isPublished: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                publishedAt: undefined,
+                conversation: '',
+                audioUrl: undefined,
+                videoUrl: undefined,
+                imageUrl: undefined,
+              })}
+            >
+              手動作成
+            </Button>
+            <Button 
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? '生成中...' : '自動生成'}
+            </Button>
+          </div>
         </div>
+
+        {/* 手動作成/編集フォーム */}
+        {selectedNews && (
+          <div className="bg-white p-6 rounded-lg shadow space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-semibold">
+                {selectedNews.id ? 'ニュースを編集' : '新規ニュース作成'}
+              </h3>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedNews(null)}
+              >
+                閉じる
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">タイトル</label>
+                <input
+                  type="text"
+                  value={selectedNews.title}
+                  onChange={(e) => setSelectedNews({
+                    ...selectedNews,
+                    title: e.target.value,
+                  })}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">説明</label>
+                <textarea
+                  value={selectedNews.description}
+                  onChange={(e) => setSelectedNews({
+                    ...selectedNews,
+                    description: e.target.value,
+                  })}
+                  rows={2}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">本文</label>
+                <textarea
+                  value={selectedNews.content}
+                  onChange={(e) => setSelectedNews({
+                    ...selectedNews,
+                    content: e.target.value,
+                  })}
+                  rows={10}
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">カテゴリー</label>
+                  <select
+                    value={selectedNews.category}
+                    onChange={(e) => setSelectedNews({
+                      ...selectedNews,
+                      category: e.target.value,
+                    })}
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="world">世界</option>
+                    <option value="business">ビジネス</option>
+                    <option value="technology">テクノロジー</option>
+                    <option value="science">科学</option>
+                    <option value="entertainment">エンターテイメント</option>
+                  </select>
+                </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">動画</label>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">動画ファイルをアップロード</label>
+                    <VideoUploader
+                      onUploadComplete={(url: string) => setSelectedNews({
+                        ...selectedNews,
+                        videoUrl: url,
+                      })}
+                      type="english"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">または YouTube URL を入力</label>
+                    <input
+                      type="text"
+                      value={selectedNews.videoUrl || ''}
+                      onChange={(e) => setSelectedNews({
+                        ...selectedNews,
+                        videoUrl: e.target.value,
+                      })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  </div>
+                  {selectedNews.videoUrl && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      現在の動画: {selectedNews.videoUrl}
+                    </div>
+                  )}
+                </div>
+              </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">タグ</label>
+                <input
+                  type="text"
+                  value={selectedNews.tags.join(', ')}
+                  onChange={(e) => setSelectedNews({
+                    ...selectedNews,
+                    tags: e.target.value.split(',').map(tag => tag.trim()),
+                  })}
+                  placeholder="カンマ区切りでタグを入力"
+                  className="w-full px-3 py-2 border rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">画像</label>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">画像ファイルをアップロード</label>
+                    <ImageUploader
+                      onUploadComplete={(url: string) => setSelectedNews({
+                        ...selectedNews,
+                        imageUrl: url,
+                      })}
+                      type="english"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">または 画像URL を入力</label>
+                    <input
+                      type="text"
+                      value={selectedNews.imageUrl || ''}
+                      onChange={(e) => setSelectedNews({
+                        ...selectedNews,
+                        imageUrl: e.target.value,
+                      })}
+                      placeholder="https://example.com/image.jpg"
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  </div>
+                  {selectedNews.imageUrl && (
+                    <div className="mt-2">
+                      <label className="block text-sm text-gray-600 mb-1">プレビュー</label>
+                      <img
+                        src={selectedNews.imageUrl}
+                        alt="Preview"
+                        className="max-w-full h-auto rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={selectedNews.isPublished}
+                  onChange={(e) => setSelectedNews({
+                    ...selectedNews,
+                    isPublished: e.target.checked,
+                  })}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-600">公開する</span>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={async () => {
+                    try {
+                      setIsUploading(true);
+                      const response = await fetch('/api/english/news', {
+                        method: selectedNews.id ? 'PUT' : 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(selectedNews),
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to save news');
+                      }
+
+                      const savedNews = await response.json();
+                      setNews(news.map(item => 
+                        item.id === savedNews.id ? savedNews : item
+                      ));
+                      setSelectedNews(null);
+                    } catch (error) {
+                      console.error('Error saving news:', error);
+                      setError(error instanceof Error ? error.message : '保存に失敗しました');
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }}
+                  disabled={isUploading}
+                >
+                  {isUploading ? '保存中...' : '保存'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* エラー表示 */}
         {error && (

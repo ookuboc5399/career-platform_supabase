@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['example.com', 'universityimages.blob.core.windows.net'],
+    domains: [
+      'example.com',
+      'universityimages.blob.core.windows.net',
+      'englishimages.blob.core.windows.net'
+    ],
   },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({

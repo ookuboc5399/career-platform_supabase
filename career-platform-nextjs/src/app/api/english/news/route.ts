@@ -37,6 +37,79 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    console.log('1. Parsing request body...');
+    const body = await request.json();
+
+    console.log('2. Creating news item...');
+    const newsItem = {
+      ...body,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const { resource } = await container.items.create(newsItem);
+    console.log('3. Creation completed successfully');
+    return NextResponse.json(resource);
+  } catch (error) {
+    console.error('Error creating news:', error);
+    let errorMessage = 'Failed to create news';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    console.log('1. Parsing request body...');
+    const body = await request.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      throw new Error('News ID is required');
+    }
+
+    console.log('2. Reading news item...', { id });
+    const { resource } = await container.item(id, id).read();
+    if (!resource) {
+      throw new Error('News not found');
+    }
+
+    console.log('3. Updating news item...');
+    const updatedNews = {
+      ...resource,
+      ...updateData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const { resource: result } = await container.item(id, id).replace(updatedNews);
+    console.log('4. Update completed successfully');
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error updating news:', error);
+    let errorMessage = 'Failed to update news';
+    let status = 500;
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (errorMessage === 'News not found') {
+        status = 404;
+      }
+    }
+
+    return NextResponse.json(
+      { error: errorMessage },
+      { status }
+    );
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     console.log('1. Parsing request body...');
