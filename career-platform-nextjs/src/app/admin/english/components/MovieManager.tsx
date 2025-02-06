@@ -34,7 +34,7 @@ export default function MovieManager() {
     }
   };
 
-  const handleVideoUpload = async (videoUrl: string) => {
+  const handleVideoUpload = async (videoUrl: string, duration: string) => {
     if (!selectedMovie) return;
     
     setSelectedMovie({
@@ -322,7 +322,7 @@ export default function MovieManager() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">動画ファイルをアップロード</label>
-                  <VideoUploader onUpload={handleVideoUpload} type="english" disabled={isLoading} />
+                  <VideoUploader onUploadComplete={handleVideoUpload} type="english" disabled={isLoading} />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">または YouTube URL を入力</label>
