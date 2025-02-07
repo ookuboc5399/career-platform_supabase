@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/auth';
 import { EnglishProgress } from '@/types/english';
+import { getContainer } from '@/lib/cosmos-db';
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || '',
-});
-
-const database = client.database('career-platform');
-const container = database.container('english-progress');
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  const container = await getContainer('english-progress');
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -46,6 +41,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const container = await getContainer('english-progress');
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {

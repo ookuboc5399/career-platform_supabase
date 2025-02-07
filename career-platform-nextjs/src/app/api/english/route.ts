@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EnglishContent } from '@/types/api';
+import { getContainer } from '@/lib/cosmos-db';
 
-// 仮のデータストア
+export const dynamic = 'force-dynamic';
+
+// 仮のデータストア（フォールバック用）
 const mockContent: { [key: string]: EnglishContent } = {
   'movie-1': {
     id: 'movie-1',
@@ -74,26 +77,28 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const difficulty = searchParams.get('difficulty');
 
-    // 仮の実装（開発用）
-    let content = Object.values(mockContent);
+    try {
+      const container = await getContainer('english');
+      const querySpec = {
+        query: 'SELECT * FROM c WHERE 1=1' + 
+          (type ? ' AND c.type = @type' : '') +
+          (difficulty ? ' AND c.difficulty = @difficulty' : ''),
+        parameters: [
+          ...(type ? [{ name: '@type', value: type }] : []),
+          ...(difficulty ? [{ name: '@difficulty', value: difficulty }] : [])
+        ]
+      };
 
-    // タイプでフィルタリング
-    if (type) {
-      content = content.filter(item => item.type === type);
+      const { resources } = await container.items.query(querySpec).fetchAll();
+      return NextResponse.json(resources);
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      // フォールバック: モックデータを使用
+      let content = Object.values(mockContent);
+      if (type) content = content.filter(item => item.type === type);
+      if (difficulty) content = content.filter(item => item.difficulty === difficulty);
+      return NextResponse.json(content);
     }
-
-    // 難易度でフィルタリング
-    if (difficulty) {
-      content = content.filter(item => item.difficulty === difficulty);
-    }
-
-    return NextResponse.json(content);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const content = await getContent({ type, difficulty });
-    return NextResponse.json(content);
-    */
   } catch (error) {
     console.error('Error fetching content:', error);
     return NextResponse.json(
@@ -108,50 +113,44 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, description, type, difficulty, videoUrl, imageUrl, content, exercises, resources } = body;
 
-    // 仮の実装（開発用）
-    const id = `${type}-${Object.keys(mockContent).length + 1}`;
-    const now = new Date().toISOString();
+    try {
+      const container = await getContainer('english');
+      const now = new Date().toISOString();
+      const id = `${type}-${Date.now()}`;
 
-    const newContent: EnglishContent = {
-      id,
-      title,
-      description,
-      type,
-      difficulty,
-      videoUrl,
-      imageUrl,
-      content,
-      exercises: exercises.map((e: any, index: number) => ({
-        ...e,
-        id: `${id}-e${index + 1}`,
-        choices: e.choices.map((c: any, cIndex: number) => ({
-          ...c,
-          id: `${id}-e${index + 1}-c${cIndex + 1}`,
+      const newContent: EnglishContent = {
+        id,
+        title,
+        description,
+        type,
+        difficulty,
+        videoUrl,
+        imageUrl,
+        content,
+        exercises: exercises.map((e: any, index: number) => ({
+          ...e,
+          id: `${id}-e${index + 1}`,
+          choices: e.choices.map((c: any, cIndex: number) => ({
+            ...c,
+            id: `${id}-e${index + 1}-c${cIndex + 1}`,
+          })),
         })),
-      })),
-      resources,
-      createdAt: now,
-      updatedAt: now,
-    };
+        resources,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    mockContent[id] = newContent;
-    return NextResponse.json(newContent);
-
-    // 本番用のコード（Cosmos DB接続が確認できたら切り替え）
-    /*
-    const newContent = await createContent({
-      title,
-      description,
-      type,
-      difficulty,
-      videoUrl,
-      imageUrl,
-      content,
-      exercises,
-      resources,
-    });
-    return NextResponse.json(newContent);
-    */
+      const { resource } = await container.items.create(newContent);
+      return NextResponse.json(resource);
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      // フォールバック: モックデータを使用
+      const id = `${type}-${Object.keys(mockContent).length + 1}`;
+      const now = new Date().toISOString();
+      const newContent = { id, title, description, type, difficulty, videoUrl, imageUrl, content, exercises, resources, createdAt: now, updatedAt: now };
+      mockContent[id] = newContent;
+      return NextResponse.json(newContent);
+    }
   } catch (error) {
     console.error('Error creating content:', error);
     return NextResponse.json(

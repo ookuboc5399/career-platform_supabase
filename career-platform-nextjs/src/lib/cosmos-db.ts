@@ -318,6 +318,15 @@ export async function updateProgrammingChaptersOrder(languageId: string, chapter
 }
 
 // 英語学習関連の関数
+export async function getContainer(containerName: string) {
+  if (!database) await initializeDatabase();
+  const { container } = await database.containers.createIfNotExists({
+    id: containerName,
+    partitionKey: '/id'
+  });
+  return container;
+}
+
 export async function getEnglishNewsContainer() {
   if (!englishNewsContainer) await initializeDatabase();
   return englishNewsContainer;
