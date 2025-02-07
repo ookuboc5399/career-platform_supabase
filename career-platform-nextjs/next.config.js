@@ -4,6 +4,8 @@ const nextConfig = {
   experimental: {
     serverActions: true,
   },
+  staticPageGenerationTimeout: 180,
+  staticPages: false,
   images: {
     domains: [
       'example.com',

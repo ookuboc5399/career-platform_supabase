@@ -2,9 +2,18 @@ import { Certification } from '@/types/api';
 import { getCertifications } from '@/lib/api';
 import Link from 'next/link';
 import Image from 'next/image';
+import { mockCertifications } from '@/data/mock-certifications';
+
+export const dynamic = 'force-dynamic';
 
 export default async function CertificationsPage() {
-  const certifications = await getCertifications();
+  let certifications: Certification[] = [];
+  try {
+    certifications = await getCertifications();
+  } catch (error) {
+    console.error('Failed to fetch certifications:', error);
+    certifications = mockCertifications;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
+import { getContainer } from '@/lib/cosmos-db';
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || ''
-});
-const database = client.database('career-platform');
-const container = database.container('english-news');
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('1. Initializing database connection...');
-    if (!process.env.COSMOS_DB_ENDPOINT || !process.env.COSMOS_DB_KEY) {
-      throw new Error('Database credentials are not configured');
-    }
-
-    console.log('2. Querying news...');
+    const container = await getContainer('english-news');
+    console.log('Querying news...');
     const { resources } = await container.items
       .query({
         query: 'SELECT * FROM c ORDER BY c.createdAt DESC',
@@ -39,7 +30,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('1. Parsing request body...');
+    const container = await getContainer('english-news');
+    console.log('Parsing request body...');
     const body = await request.json();
 
     console.log('2. Creating news item...');
@@ -67,7 +59,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    console.log('1. Parsing request body...');
+    const container = await getContainer('english-news');
+    console.log('Parsing request body...');
     const body = await request.json();
     const { id, ...updateData } = body;
 
@@ -112,7 +105,8 @@ export async function PUT(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    console.log('1. Parsing request body...');
+    const container = await getContainer('english-news');
+    console.log('Parsing request body...');
     const body = await request.json();
     const { id, isPublished, publishedAt } = body;
 
@@ -157,7 +151,8 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    console.log('1. Parsing request body...');
+    const container = await getContainer('english-news');
+    console.log('Parsing request body...');
     const body = await request.json();
     const { id } = body;
 

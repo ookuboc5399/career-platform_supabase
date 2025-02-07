@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
+import { getContainer } from '@/lib/cosmos-db';
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || ''
-});
-const database = client.database('career-platform');
-const container = database.container('english-news');
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('1. Initializing database connection...');
-    if (!process.env.COSMOS_DB_ENDPOINT || !process.env.COSMOS_DB_KEY) {
-      throw new Error('Database credentials are not configured');
-    }
-
+    const container = await getContainer('english-news');
     const id = params.id;
-    console.log('2. Fetching news item...', { id });
+    console.log('Fetching news item...', { id });
 
     const { resource } = await container.item(id, id).read();
     if (!resource) {
