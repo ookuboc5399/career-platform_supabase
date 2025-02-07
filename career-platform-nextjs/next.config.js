@@ -25,10 +25,11 @@ const nextConfig = {
   },
   transpilePackages: ['react-quill'],
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'https://career-platform-express-a4bwhcbwf6cmaegs.eastus2-01.azurewebsites.net';
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_EXPRESS_API_URL + '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
     ]
   },
