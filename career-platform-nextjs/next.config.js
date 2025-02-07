@@ -1,17 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: 'export',
   experimental: {
     serverActions: true,
   },
-  staticPageGenerationTimeout: 180,
-  staticPages: false,
+  trailingSlash: true,
   images: {
+    unoptimized: true,
     domains: [
       'example.com',
       'universityimages.blob.core.windows.net',
       'englishimages.blob.core.windows.net'
-    ],
+    ]
   },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({

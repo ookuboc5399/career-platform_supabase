@@ -33,7 +33,7 @@ jobs:
           action: "upload"
           app_location: "career-platform-nextjs"
           api_location: ""
-          output_location: ".next"
+          output_location: "out"
           app_build_command: "npm run build"
         env:
           NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
