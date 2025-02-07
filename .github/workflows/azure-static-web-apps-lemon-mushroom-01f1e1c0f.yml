@@ -26,9 +26,21 @@ jobs:
       
       - name: Install Dependencies
         working-directory: career-platform-nextjs
-        run: npm install
+        run: |
+          npm ci
+          npm cache clean --force
 
-      - name: Build And Deploy Next.js
+      - name: Build Next.js
+        working-directory: career-platform-nextjs
+        run: |
+          npm run build
+          # Remove unnecessary files
+          rm -rf .next/cache
+          # Copy static files
+          cp -r public .next/standalone/
+          cp -r .next/static .next/standalone/.next/
+
+      - name: Deploy Next.js
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:

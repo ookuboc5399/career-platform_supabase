@@ -35,3 +35,11 @@ yarn-error.log*
 # vercel
 .vercel
 secrets/
+
+# uploads
+/public/uploads/
+/public/uploads/**/*
+
+# standalone build
+.next/standalone/
+.next/static/
