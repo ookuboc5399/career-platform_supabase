@@ -40,7 +40,7 @@ export default function HomePage() {
         <div className="w-24 h-24 bg-[#90BE6D] rounded-full opacity-20"></div>
       </div>
 
-      <div className="container mx-auto px-4 py-16 relative">
+      <div className="container mx-auto px-4 py-16 relative flex flex-col min-h-screen">
         {/* Main content */}
         <div className="text-center mb-16 relative">
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-12 w-32 h-32">
@@ -108,6 +108,16 @@ export default function HomePage() {
             <rect x="75" y="165" width="50" height="10" fill="#4CC9F0"/>
             <path d="M75 165 L125 165 L125 160 L75 160 Z" fill="#F77F00"/>
           </svg>
+        </div>
+
+        {/* フッター */}
+        <div className="mt-auto py-8 text-center">
+          <Link
+            href="/contact"
+            className="text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            お問い合わせ
+          </Link>
         </div>
       </div>
     </div>

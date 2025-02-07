@@ -125,12 +125,15 @@ export async function createCertificationChapter(data: any) {
   return resource;
 }
 
-export async function getCertificationChapter(chapterId: string) {
+export async function getCertificationChapter(chapterId: string, certificationId: string) {
   if (!certificationChaptersContainer) await initializeDatabase();
   const { resources } = await certificationChaptersContainer.items
     .query({
-      query: 'SELECT * FROM c WHERE c.id = @chapterId',
-      parameters: [{ name: '@chapterId', value: chapterId }],
+      query: 'SELECT * FROM c WHERE c.id = @chapterId AND c.certificationId = @certificationId',
+      parameters: [
+        { name: '@chapterId', value: chapterId },
+        { name: '@certificationId', value: certificationId }
+      ],
     })
     .fetchAll();
   return resources[0];

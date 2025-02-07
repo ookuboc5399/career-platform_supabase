@@ -1,26 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { ContactFormData } from '@/types/contact';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
+    const data: ContactFormData = await request.json();
     
-    const response = await fetch('http://localhost:3000/contact', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
+    // ここでメール送信やデータベースへの保存などを実装
+    // 現時点ではコンソールに出力するだけ
+    console.log('Contact form submission:', data);
 
-    if (!response.ok) {
-      throw new Error('Failed to submit contact form');
-    }
-
-    return NextResponse.json({ message: 'Contact form submitted successfully' });
+    return NextResponse.json({ message: 'お問い合わせを受け付けました' });
   } catch (error) {
-    console.error('Contact form submission error:', error);
+    console.error('Error processing contact form:', error);
     return NextResponse.json(
-      { error: 'Failed to submit contact form' },
+      { error: 'お問い合わせの処理中にエラーが発生しました' },
       { status: 500 }
     );
   }

@@ -1,86 +1,105 @@
 'use client';
 
-import React from 'react';
-import { submitContactForm } from '@/lib/api';
+import { useState } from 'react';
+import { ContactFormData } from '@/types/contact';
 
-export function ContactForm() {
+export default function ContactForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          email: formData.get('email'),
+          subject: formData.get('subject'),
+          message: formData.get('message'),
+        } as ContactFormData),
+      });
+
+      if (!response.ok) throw new Error('Failed to send message');
+
+      alert('お問い合わせを受け付けました。');
+      (event.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('エラーが発生しました。もう一度お試しください。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="lg:col-span-2">
-      <div className="bg-white rounded-lg shadow-lg p-8">
-        <h2 className="text-2xl font-semibold mb-6">お問い合わせフォーム</h2>
-        <form className="space-y-6" onSubmit={async (e) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget);
-          try {
-            await submitContactForm({
-              name: formData.get('name') as string,
-              email: formData.get('email') as string,
-              subject: formData.get('subject') as string,
-              message: formData.get('message') as string,
-            });
-            alert('お問い合わせを受け付けました。');
-            e.currentTarget.reset();
-          } catch (error) {
-            alert('エラーが発生しました。もう一度お試しください。');
-            console.error(error);
-          }
-        }}>
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              お名前
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              メールアドレス
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
-              件名
-            </label>
-            <input
-              type="text"
-              id="subject"
-              name="subject"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="message" className="block text-sm font-medium text-gray-700">
-              お問い合わせ内容
-            </label>
-            <textarea
-              id="message"
-              name="message"
-              rows={6}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            ></textarea>
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300"
-          >
-            送信する
-          </button>
-        </form>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          お名前
+        </label>
+        <input
+          type="text"
+          name="name"
+          id="name"
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        />
       </div>
-    </div>
+
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          メールアドレス
+        </label>
+        <input
+          type="email"
+          name="email"
+          id="email"
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+          件名
+        </label>
+        <input
+          type="text"
+          name="subject"
+          id="subject"
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+          お問い合わせ内容
+        </label>
+        <textarea
+          name="message"
+          id="message"
+          rows={4}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+        >
+          {isSubmitting ? '送信中...' : '送信する'}
+        </button>
+      </div>
+    </form>
   );
 }

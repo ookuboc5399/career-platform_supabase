@@ -243,7 +243,7 @@ export default function VideoPlayer({ url, onComplete, completed = false, subtit
             className="w-full h-full object-contain"
             onClick={togglePlay}
           >
-            <source src={videoUrl} type="video/mp4" />
+            {videoUrl && <source src={videoUrl} type="video/mp4" />}
             お使いのブラウザは動画の再生に対応していません。
           </video>
 

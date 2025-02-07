@@ -15,7 +15,7 @@ const database = client.database('career-platform');
 const container = database.container('english-questions');
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.AZURE_STORAGE_CONNECTION_STRING || ''
+  process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING || ''
 );
 
 const containerClient = blobServiceClient.getContainerClient('english-questions');

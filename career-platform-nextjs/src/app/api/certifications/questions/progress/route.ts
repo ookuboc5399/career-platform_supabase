@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CosmosClient } from '@azure/cosmos';
 import { createCertificationQuestionProgress, getCertificationQuestionProgress } from '@/lib/cosmos-db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/auth';
 
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/certifications/questions/progress - Start');
     const body = await request.json();
     console.log('Request body:', body);
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
 
     const { certificationId, questionId, selectedAnswer } = body;
 
@@ -30,6 +40,7 @@ export async function POST(request: NextRequest) {
 
     // 進捗を記録
     const progress = await createCertificationQuestionProgress({
+      userId: session.user.email,
       certificationId,
       questionId,
       selectedAnswer,
@@ -62,7 +73,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const progress = await getCertificationQuestionProgress(certificationId);
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    const progress = await getCertificationQuestionProgress(session.user.email, certificationId);
     console.log('Found progress:', progress);
     return NextResponse.json(progress);
   } catch (error) {

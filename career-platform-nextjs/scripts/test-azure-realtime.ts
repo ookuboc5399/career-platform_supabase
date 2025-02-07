@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { RTClient } from '../../standalone/src/client';
+import { RTClient } from '../src/lib/client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,7 +54,7 @@ async function main() {
       instructions: 'You are a helpful assistant.',
     });
 
-    const filePath = path.join(__dirname, '../../standalone/test/input/arc-easy-q237-tts.raw');
+    const filePath = path.join(__dirname, '../test/input/arc-easy-q237-tts.raw');
     console.log('Reading audio file:', filePath);
 
     for await (const chunk of readInputFile(filePath)) {

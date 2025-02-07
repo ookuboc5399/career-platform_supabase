@@ -74,7 +74,7 @@ export async function extractVocabulary(text: string, timestamp: number): Promis
     - context: example usage from the text
   `;
 
-  const response = await client.getCompletions(settings.deploymentName, [prompt]);
+  const response = await client.getCompletions(process.env.AZURE_OPENAI_DEPLOYMENT_NAME!, [prompt]);
   const result = JSON.parse(response.choices[0].text);
   
   return result.map((item: any) => ({
