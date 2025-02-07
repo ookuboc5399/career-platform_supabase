@@ -24,6 +24,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: career-platform-nextjs/package-lock.json
       
+      - name: Install Dependencies
+        working-directory: career-platform-nextjs
+        run: npm install
+
       - name: Build And Deploy Next.js
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -33,7 +37,7 @@ jobs:
           action: "upload"
           app_location: "career-platform-nextjs"
           api_location: ""
-          output_location: "standalone"
+          output_location: ".next/standalone"
           app_build_command: "npm run build"
           skip_api_build: true
           is_static_export: false
