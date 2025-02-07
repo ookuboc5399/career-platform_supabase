@@ -4,30 +4,51 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'career-platform-nextjs/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
-    paths:
-      - 'career-platform-nextjs/**'
 
 jobs:
   build_and_deploy:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Deploy Next.js Frontend
+    name: Build and Deploy Job
+    env:
+      NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      OAUTH_GITHUB_ID: ${{ secrets.OAUTH_GITHUB_ID }}
+      OAUTH_GITHUB_SECRET: ${{ secrets.OAUTH_GITHUB_SECRET }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+      AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+      COSMOS_DB_ENDPOINT: ${{ secrets.COSMOS_DB_ENDPOINT }}
+      COSMOS_DB_KEY: ${{ secrets.COSMOS_DB_KEY }}
+      AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+      AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
+      NEXT_PUBLIC_EXPRESS_API_URL: https://career-platform-express-a4bwhcbwf6cmaegs.eastus2-01.azurewebsites.net
+      NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_KEY: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_KEY }}
+      NEXT_PUBLIC_AZURE_OPENAI_MOVIE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_ENDPOINT }}
+      NEXT_PUBLIC_AZURE_OPENAI_MOVIE_DEPLOYMENT_NAME: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_DEPLOYMENT_NAME }}
+      NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_VERSION: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_VERSION }}
+      NEXT_PUBLIC_YOUTUBE_API_KEY: ${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}
+      NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING }}
+      AZURE_COMPUTER_VISION_KEY: ${{ secrets.AZURE_COMPUTER_VISION_KEY }}
+      AZURE_COMPUTER_VISION_ENDPOINT: ${{ secrets.AZURE_COMPUTER_VISION_ENDPOINT }}
     steps:
       - uses: actions/checkout@v3
-      
+        with:
+          submodules: true
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: career-platform-nextjs/package-lock.json
-      
+
       - name: Install Dependencies
         working-directory: career-platform-nextjs
         run: |
@@ -36,59 +57,28 @@ jobs:
 
       - name: Build Next.js
         working-directory: career-platform-nextjs
-        run: |
-          npm run build
-          # Remove unnecessary files
-          rm -rf .next/cache
-          # Copy static files
-          cp -r public .next/standalone/
-          cp -r .next/static .next/standalone/.next/
+        run: npm run build
 
-      - name: Deploy Next.js
+      - name: Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "career-platform-nextjs"
           api_location: ""
           output_location: ".next/standalone"
-          app_build_command: "npm run build"
           skip_api_build: true
-          is_static_export: false
-        env:
-          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          OAUTH_GITHUB_ID: ${{ secrets.OAUTH_GITHUB_ID }}
-          OAUTH_GITHUB_SECRET: ${{ secrets.OAUTH_GITHUB_SECRET }}
-          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
-          COSMOS_DB_ENDPOINT: ${{ secrets.COSMOS_DB_ENDPOINT }}
-          COSMOS_DB_KEY: ${{ secrets.COSMOS_DB_KEY }}
-          AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
-          AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
-          NEXT_PUBLIC_EXPRESS_API_URL: https://career-platform-express-a4bwhcbwf6cmaegs.eastus2-01.azurewebsites.net
-          NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_KEY: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_KEY }}
-          NEXT_PUBLIC_AZURE_OPENAI_MOVIE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_ENDPOINT }}
-          NEXT_PUBLIC_AZURE_OPENAI_MOVIE_DEPLOYMENT_NAME: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_DEPLOYMENT_NAME }}
-          NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_VERSION: ${{ secrets.NEXT_PUBLIC_AZURE_OPENAI_MOVIE_API_VERSION }}
-          NEXT_PUBLIC_YOUTUBE_API_KEY: ${{ secrets.NEXT_PUBLIC_YOUTUBE_API_KEY }}
-          NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING }}
-          AZURE_COMPUTER_VISION_KEY: ${{ secrets.AZURE_COMPUTER_VISION_KEY }}
-          AZURE_COMPUTER_VISION_ENDPOINT: ${{ secrets.AZURE_COMPUTER_VISION_ENDPOINT }}
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    name: Close Pull Request
+    name: Close Pull Request Job
     steps:
       - name: Close Pull Request
         id: closepullrequest
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           action: "close"
