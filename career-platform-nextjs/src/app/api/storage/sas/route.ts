@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlobServiceClient, BlobSASPermissions } from '@azure/storage-blob';
 
+export const dynamic = 'force-dynamic';
+
 if (!process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING) {
   throw new Error('Azure Storage connection string is not configured');
 }

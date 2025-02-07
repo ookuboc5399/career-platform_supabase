@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
-    const res = await fetch('http://localhost:3000/faq', {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/faq`, {
       headers: {
         'Content-Type': 'application/json',
       },

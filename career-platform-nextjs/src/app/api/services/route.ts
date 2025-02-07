@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 
-const API_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3000';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    console.log('Fetching services from:', `${API_URL}/services`);
-    const response = await fetch(`${API_URL}/services`);
+    console.log('Fetching services from:', `${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/services`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/services`);
     console.log('Response status:', response.status);
     const data = await response.json();
     console.log('Services data:', data);

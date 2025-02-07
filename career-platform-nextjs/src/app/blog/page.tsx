@@ -3,6 +3,8 @@ import { getBlogPosts } from '@/lib/api';
 import { BlogPost } from '@/types';
 import { ErrorMessage } from '@/components/ErrorMessage';
 
+export const dynamic = 'force-dynamic';
+
 export default async function BlogPage() {
   try {
     const posts: BlogPost[] = await getBlogPosts();

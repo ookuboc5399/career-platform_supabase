@@ -4,6 +4,8 @@ import { Service } from '@/types';
 import { ServiceCard } from '@/components/ServiceCard';
 import { ErrorMessage } from '@/components/ErrorMessage';
 
+export const dynamic = 'force-dynamic';
+
 
 export default async function ServicesPage() {
   try {

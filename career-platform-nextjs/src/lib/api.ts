@@ -13,11 +13,6 @@ import {
 } from '@/types/api';
 
 const getBaseUrl = () => {
-  if (typeof window === 'undefined') {
-    // Server-side
-    return process.env.EXPRESS_API_URL || 'http://localhost:4000';
-  }
-  // Client-side
   return process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
 };
 

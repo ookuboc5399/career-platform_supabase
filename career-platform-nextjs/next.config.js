@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+  experimental: {
+    serverActions: true,
+  },
   images: {
     domains: [
       'example.com',
@@ -23,6 +27,14 @@ const nextConfig = {
     return config;
   },
   transpilePackages: ['react-quill'],
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: process.env.NEXT_PUBLIC_EXPRESS_API_URL + '/api/:path*',
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

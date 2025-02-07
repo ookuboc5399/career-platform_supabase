@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { extractTextFromBuffer } from '@/lib/azure-vision';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     console.log('OCR API called');
