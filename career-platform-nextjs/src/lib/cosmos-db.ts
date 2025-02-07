@@ -1,13 +1,21 @@
 import { CosmosClient, Container } from '@azure/cosmos';
 
-if (!process.env.COSMOS_DB_ENDPOINT || !process.env.COSMOS_DB_KEY) {
-  throw new Error('Cosmos DB credentials are not configured');
-}
+let client: CosmosClient;
 
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT,
-  key: process.env.COSMOS_DB_KEY,
-});
+function getClient() {
+  if (!process.env.COSMOS_DB_ENDPOINT || !process.env.COSMOS_DB_KEY) {
+    throw new Error('Cosmos DB credentials are not configured');
+  }
+
+  if (!client) {
+    client = new CosmosClient({
+      endpoint: process.env.COSMOS_DB_ENDPOINT,
+      key: process.env.COSMOS_DB_KEY,
+    });
+  }
+
+  return client;
+}
 
 let database: any;
 export let universitiesContainer: Container;

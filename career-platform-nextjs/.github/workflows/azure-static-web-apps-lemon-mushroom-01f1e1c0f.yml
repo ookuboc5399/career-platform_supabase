@@ -1,16 +1,20 @@
-name: Azure Deploy - Next.js and Express
+name: Azure Static Web Apps CI/CD
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'career-platform-nextjs/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+    paths:
+      - 'career-platform-nextjs/**'
 
 jobs:
-  deploy_nextjs:
+  build_and_deploy:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Deploy Next.js Frontend
@@ -76,41 +80,6 @@ jobs:
           NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING }}
           AZURE_COMPUTER_VISION_KEY: ${{ secrets.AZURE_COMPUTER_VISION_KEY }}
           AZURE_COMPUTER_VISION_ENDPOINT: ${{ secrets.AZURE_COMPUTER_VISION_ENDPOINT }}
-
-  deploy_express:
-    runs-on: ubuntu-latest
-    name: Deploy Express Backend
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: career-platform-express/package-lock.json
-
-      - name: npm install and build
-        working-directory: career-platform-express
-        run: |
-          npm install
-          npm run build
-
-      - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: career-platform-express
-        env:
-          COSMOS_DB_ENDPOINT: ${{ secrets.COSMOS_DB_ENDPOINT }}
-          COSMOS_DB_KEY: ${{ secrets.COSMOS_DB_KEY }}
-          AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
-          AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
-          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
-          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
