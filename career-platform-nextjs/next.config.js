@@ -1,12 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  output: 'standalone',
   experimental: {
     serverActions: true,
   },
-  trailingSlash: true,
   images: {
-    unoptimized: true,
     domains: [
       'example.com',
       'universityimages.blob.core.windows.net',
