@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "next build",
+    "clean": "rm -rf .next node_modules",
     "import-languages": "ts-node scripts/import-programming-languages.ts",
     "test:realtime": "NODE_OPTIONS='--loader ts-node/esm' ts-node --esm scripts/test-azure-realtime.ts",
     "test:azure-movie": "NODE_OPTIONS='--loader ts-node/esm' ts-node --esm scripts/test-azure-movie.ts"

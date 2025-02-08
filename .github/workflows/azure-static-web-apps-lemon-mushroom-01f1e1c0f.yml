@@ -55,9 +55,24 @@ jobs:
           npm ci
           npm cache clean --force
 
-      - name: Build Next.js
+      - name: Build and Optimize
         working-directory: career-platform-nextjs
-        run: npm run build
+        run: |
+          # Remove dev dependencies and install sharp
+          npm prune --production
+          npm install sharp
+          
+          # Build the application
+          npm run build
+          
+          # Clean up and optimize
+          rm -rf .next/cache
+          find .next -name "*.map" -type f -delete
+          
+          # Prepare standalone output
+          mkdir -p .next/standalone
+          cp -r .next/static .next/standalone/.next/
+          cp -r public .next/standalone/
 
       - name: Deploy
         id: builddeploy

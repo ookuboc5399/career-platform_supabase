@@ -1,13 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  experimental: { 
+    optimizeCss: true,
+    turboMode: true,
+    optimizePackageImports: ['react-quill']
+  },
   images: {
     domains: [
       'example.com',
       'universityimages.blob.core.windows.net',
       'englishimages.blob.core.windows.net'
-    ]
+    ],
+    unoptimized: process.env.NODE_ENV === 'production'
   },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  poweredByHeader: false,
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({
       test: /react-quill/,
