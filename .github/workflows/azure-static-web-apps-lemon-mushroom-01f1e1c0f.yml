@@ -62,8 +62,8 @@ jobs:
           output_location: ".next/standalone"
           app_build_command: |
             rm -rf .next node_modules
-            npm ci --only=prod --no-optional
-            npm install --no-save sharp
+            npm ci
+            npm install --no-save sharp autoprefixer postcss tailwindcss
             npm run build
             rm -rf node_modules/.cache
             find . -name "*.map" -type f -delete
