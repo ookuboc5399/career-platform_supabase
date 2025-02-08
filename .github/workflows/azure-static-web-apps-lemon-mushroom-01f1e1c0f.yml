@@ -4,10 +4,18 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'career-platform-nextjs/**'
+      - '!career-platform-nextjs/README.md'
+      - '!career-platform-nextjs/.gitignore'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+    paths:
+      - 'career-platform-nextjs/**'
+      - '!career-platform-nextjs/README.md'
+      - '!career-platform-nextjs/.gitignore'
 
 jobs:
   build_and_deploy:
@@ -60,30 +68,8 @@ jobs:
       - name: Build Next.js
         working-directory: career-platform-nextjs
         run: |
-          # Install dependencies
           npm ci
-          
-          # Build with optimizations
-          NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production npm run build
-          
-          # Prepare deployment package
-          mkdir -p dist
-          cp -r .next/standalone/* dist/
-          cp -r .next/static dist/.next/static/
-          cp -r public dist/
-          
-          # Copy server.js and required files
-          cp .next/standalone/server.js dist/
-          cp next.config.js dist/
-          cp package.json dist/
-          
-          # Remove unnecessary files
-          find dist -name "*.map" -type f -delete
-          find dist -name "*.d.ts" -type f -delete
-          
-          # Create minimal node_modules with only production dependencies
-          cd dist
-          npm ci --production --ignore-scripts
+          npm run build
 
       - name: Deploy
         id: builddeploy
@@ -93,7 +79,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "career-platform-nextjs/dist"
+          app_location: "career-platform-nextjs"
           api_location: ""
           output_location: ".next"
           skip_app_build: true
