@@ -49,24 +49,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: career-platform-nextjs/package-lock.json
 
-      - name: Install Dependencies
-        working-directory: career-platform-nextjs
-        run: |
-          npm ci
-          npm cache clean --force
-
-      - name: Build Next.js
-        working-directory: career-platform-nextjs
-        run: |
-          # Install additional dependencies
-          npm install sharp critters
-          
-          # Build the application
-          npm run build
-          
-          # Clean up unnecessary files
-          rm -rf .next/cache
-
       - name: Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -74,9 +56,10 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "."
+          app_location: "career-platform-nextjs"
           api_location: ""
-          output_location: "career-platform-nextjs/.next"
+          output_location: ".next/standalone"
+          app_build_command: "npm ci && npm install sharp critters && npm run build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/"
           skip_api_build: true
 
   close_pull_request:
