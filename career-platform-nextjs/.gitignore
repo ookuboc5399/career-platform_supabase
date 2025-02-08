@@ -43,3 +43,11 @@ secrets/
 # standalone build
 .next/standalone/
 .next/static/
+
+# build optimization
+.next/cache/
+**/*.map
+**/.DS_Store
+**/.env.*
+node_modules/.cache/
+.npm
