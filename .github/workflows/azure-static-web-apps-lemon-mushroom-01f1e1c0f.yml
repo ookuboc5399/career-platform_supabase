@@ -57,43 +57,33 @@ jobs:
             career-platform-nextjs/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('career-platform-nextjs/package-lock.json') }}
 
-      - name: Build and Optimize
+      - name: Build Next.js
         working-directory: career-platform-nextjs
         run: |
-          # Install only required dependencies
+          # Install dependencies
           npm ci
-          npm install --no-save sharp critters autoprefixer postcss tailwindcss
           
           # Build with optimizations
           NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production npm run build
           
-          # Create minimal deployment package
-          mkdir -p deploy
+          # Prepare deployment package
+          mkdir -p dist
+          cp -r .next/standalone/* dist/
+          cp -r .next/static dist/.next/static/
+          cp -r public dist/
           
-          # Copy only essential files
-          mkdir -p deploy/.next
-          cp -r .next/standalone/* deploy/
-          cp -r public deploy/
-          cp -r .next/static deploy/.next/static
+          # Copy server.js and required files
+          cp .next/standalone/server.js dist/
+          cp next.config.js dist/
+          cp package.json dist/
           
           # Remove unnecessary files
-          find deploy -type f -name "*.map" -delete
-          find deploy -type f -name "*.d.ts" -delete
-          find deploy -type f -name "*.test.*" -delete
-          find deploy -type f -name "*.stories.*" -delete
-          find deploy -type f -name "README.md" -delete
-          find deploy -type f -name "LICENSE" -delete
-          find deploy -type d -name "__tests__" -exec rm -rf {} +
-          find deploy -type d -name "test" -exec rm -rf {} +
-          find deploy -type d -name "docs" -exec rm -rf {} +
+          find dist -name "*.map" -type f -delete
+          find dist -name "*.d.ts" -type f -delete
           
-          # Optimize bundle size
-          rm -rf deploy/node_modules/.cache
-          rm -rf deploy/node_modules/*/{test,tests,docs,examples}
-          
-          # Optimize file permissions
-          find deploy -type f -exec chmod 644 {} \;
-          find deploy -type d -exec chmod 755 {} \;
+          # Create minimal node_modules with only production dependencies
+          cd dist
+          npm ci --production --ignore-scripts
 
       - name: Deploy
         id: builddeploy
@@ -103,9 +93,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "career-platform-nextjs"
+          app_location: "career-platform-nextjs/dist"
           api_location: ""
-          output_location: "deploy"
+          output_location: ".next"
           skip_app_build: true
           skip_api_build: true
           deployment_environment: production
