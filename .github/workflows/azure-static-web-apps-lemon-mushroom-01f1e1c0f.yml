@@ -55,24 +55,17 @@ jobs:
           npm ci
           npm cache clean --force
 
-      - name: Build and Optimize
+      - name: Build Next.js
         working-directory: career-platform-nextjs
         run: |
-          # Remove dev dependencies and install sharp
-          npm prune --production
-          npm install sharp
+          # Install additional dependencies
+          npm install sharp critters
           
           # Build the application
           npm run build
           
-          # Clean up and optimize
+          # Clean up unnecessary files
           rm -rf .next/cache
-          find .next -name "*.map" -type f -delete
-          
-          # Prepare standalone output
-          mkdir -p .next/standalone
-          cp -r .next/static .next/standalone/.next/
-          cp -r public .next/standalone/
 
       - name: Deploy
         id: builddeploy
@@ -81,9 +74,9 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_MUSHROOM_01F1E1C0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "career-platform-nextjs"
+          app_location: "."
           api_location: ""
-          output_location: ".next/standalone"
+          output_location: "career-platform-nextjs/.next"
           skip_api_build: true
 
   close_pull_request:
