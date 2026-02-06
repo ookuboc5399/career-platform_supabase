@@ -1,6 +1,10 @@
-# Environment variables
+# Environment variables and secrets
 **/.env
 **/.env.*
+**/.env.local
+**/*credentials*.json
+**/roadtoentrepreneur*.json
+**/*.pem
 
 # Dependencies
 **/node_modules
