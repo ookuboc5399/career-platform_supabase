@@ -95,17 +95,25 @@ export default function NewsPage() {
         {/* 最新ニュース */}
         {latestNews && (
           <Link
-            href={`/english/news/${latestNews.id}`}
+            href={latestNews.id.startsWith('newsapi-') ? `/english/news/external/${latestNews.id}` : `/english/news/${latestNews.id}`}
             className="block mb-12 group"
           >
             <div className="grid md:grid-cols-2 gap-8 bg-white rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-shadow">
               <div className="relative h-64 md:h-full min-h-[300px]">
-                <Image
-                  src={latestNews.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
-                  alt={latestNews.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+                {latestNews.id.startsWith('newsapi-') ? (
+                  <img
+                    src={latestNews.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
+                    alt={latestNews.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <Image
+                    src={latestNews.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
+                    alt={latestNews.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent md:hidden"></div>
               </div>
               <div className="p-6 md:p-8 flex flex-col justify-center">
@@ -132,12 +140,24 @@ export default function NewsPage() {
                   {latestNews.description}
                 </p>
                 <div className="flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    {latestNews.tags.map((tag) => (
-                      <span key={tag} className="text-blue-600">
-                        #{tag}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      {latestNews.tags?.map((tag) => (
+                        <span key={tag} className="text-blue-600">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                    {latestNews.sourceName && (
+                      <a
+                        href={latestNews.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        Source: {latestNews.sourceName}
+                      </a>
+                    )}
                   </div>
                   <time dateTime={latestNews.createdAt} className="font-medium">
                     {new Date(latestNews.createdAt).toLocaleDateString()}
@@ -153,17 +173,25 @@ export default function NewsPage() {
           {otherNews.map((item) => (
             <Link
               key={item.id}
-              href={`/english/news/${item.id}`}
+              href={item.id.startsWith('newsapi-') ? `/english/news/external/${item.id}` : `/english/news/${item.id}`}
               className="group"
             >
               <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow h-full flex flex-col">
                 <div className="relative h-48">
-                  <Image
-                    src={item.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
-                    alt={item.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                  {item.id.startsWith('newsapi-') ? (
+                    <img
+                      src={item.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <Image
+                      src={item.imageUrl || 'https://englishimages.blob.core.windows.net/news/placeholder.jpg'}
+                      alt={item.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  )}
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <div className="flex items-center gap-2 mb-3">
@@ -189,12 +217,24 @@ export default function NewsPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between text-sm text-gray-500 mt-auto">
-                    <div className="flex items-center gap-2">
-                      {item.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="text-blue-600">
-                          #{tag}
-                        </span>
-                      ))}
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {item.tags?.slice(0, 2).map((tag) => (
+                          <span key={tag} className="text-blue-600">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                      {item.sourceName && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          Source: {item.sourceName}
+                        </a>
+                      )}
                     </div>
                     <time dateTime={item.createdAt} className="font-medium">
                       {new Date(item.createdAt).toLocaleDateString()}

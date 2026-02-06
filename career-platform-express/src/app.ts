@@ -9,6 +9,9 @@ import uploadRouter from './routes/upload';
 import imagesRouter from './routes/images';
 import universitiesRouter from './routes/universities';
 import googleVisionRouter from './routes/google-vision';
+import questionsRouter from './routes/questions';
+import newsRouter from './routes/news';
+import companiesRouter from './routes/companies';
 
 const app = express();
 
@@ -16,7 +19,7 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.FRONTEND_URL 
-    : 'http://localhost:3000',
+    : ['http://localhost:3000', 'http://localhost:3003'], // Next.jsのデフォルトポートとカスタムポートに対応
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
@@ -55,6 +58,9 @@ app.use('/api/upload', uploadRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/universities', universitiesRouter);
 app.use('/api/google-vision', googleVisionRouter);
+app.use('/api/certifications/:id/questions', questionsRouter);
+app.use('/api/english/news', newsRouter);
+app.use('/api/companies', companiesRouter);
 
 // エラーハンドリング
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

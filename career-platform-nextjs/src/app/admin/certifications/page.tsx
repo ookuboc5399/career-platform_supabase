@@ -66,24 +66,11 @@ export default function CertificationsPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleCreateSave = async (data: {
-    name: string;
-    description: string;
-    category: string;
-    difficulty: 'beginner' | 'intermediate' | 'advanced';
-    estimatedStudyTime: string;
-  }) => {
+  const handleCreateSave = async (formData: FormData) => {
     try {
-      const formData = new FormData();
-      formData.append('name', data.name);
-      formData.append('description', data.description);
-      formData.append('category', data.category);
-      formData.append('difficulty', data.difficulty);
-      formData.append('estimatedStudyTime', data.estimatedStudyTime);
-
       const response = await fetch('/api/certifications', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
       if (!response.ok) {
@@ -241,20 +228,16 @@ export default function CertificationsPage() {
         <EditCertificationModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          onSave={async (data) => {
+          onSave={async (formData) => {
             try {
-              const response = await fetch(`/api/certifications/${selectedCertification.id}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-              });
-
-              if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Failed to update certification: ${JSON.stringify(errorData)}`);
-              }
+              const data = {
+                name: formData.get('name') as string,
+                description: formData.get('description') as string,
+                category: formData.get('category') as string,
+                difficulty: formData.get('difficulty') as 'beginner' | 'intermediate' | 'advanced',
+                estimatedStudyTime: formData.get('estimatedStudyTime') as string,
+              };
+              await updateCertification(selectedCertification.id, data);
               await fetchCertifications();
               setIsEditModalOpen(false);
             } catch (error) {

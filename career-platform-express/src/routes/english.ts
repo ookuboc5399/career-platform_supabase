@@ -1,9 +1,45 @@
-import express from 'express';
-import { BlobServiceClient, StorageSharedKeyCredential } from '@azure/storage-blob';
+import express, { Request, Response, Router, RequestHandler } from 'express';
+import { 
+  BlobServiceClient, 
+  StorageSharedKeyCredential, 
+  ContainerClient,
+  generateBlobSASQueryParameters, 
+  BlobSASPermissions, 
+  SASProtocol 
+} from '@azure/storage-blob';
+import { CosmosClient } from '@azure/cosmos';
 import axios from 'axios';
 import cors from 'cors';
 
-const router = express.Router();
+// SASトークン生成関数
+async function generateSasToken(
+  containerClient: ContainerClient,
+  blobName: string,
+  permissions: string,
+  expiryMinutes: number
+): Promise<string> {
+  const startsOn = new Date();
+  const expiresOn = new Date(startsOn);
+  expiresOn.setMinutes(startsOn.getMinutes() + expiryMinutes);
+
+  const sasOptions = {
+    containerName: containerClient.containerName,
+    blobName: blobName,
+    permissions: BlobSASPermissions.parse(permissions),
+    startsOn: startsOn,
+    expiresOn: expiresOn,
+    protocol: SASProtocol.Https
+  };
+
+  const sasToken = generateBlobSASQueryParameters(
+    sasOptions,
+    containerClient.credential as StorageSharedKeyCredential
+  ).toString();
+
+  return sasToken;
+}
+
+const router = Router();
 
 // CORS設定
 router.use(cors({
@@ -12,6 +48,14 @@ router.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Cosmos DB設定
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
+  key: process.env.COSMOS_DB_KEY || ''
+});
+const database = client.database('career-platform');
+const container = database.container('english-questions');
 
 // Azure設定
 const AZURE_CONFIG = {
@@ -41,7 +85,7 @@ const blobServiceClient = new BlobServiceClient(
 );
 
 // Azure設定の取得
-router.get('/english/settings', async (req, res) => {
+router.get('/settings', async (req, res) => {
   try {
     const settings = {
       speech: {
@@ -58,7 +102,7 @@ router.get('/english/settings', async (req, res) => {
 });
 
 // 動画の処理
-router.post('/english/movies/process', async (req, res) => {
+router.post('/movies/process', async (req, res) => {
   try {
     const { videoUrl } = req.body;
 
@@ -80,217 +124,236 @@ router.post('/english/movies/process', async (req, res) => {
   }
 });
 
-// 既存のニュース関連のルート
-router.get('/english/news', async (req, res) => {
+// 英語問題のCRUDエンドポイント
+// 問題一覧の取得
+const getQuestions: RequestHandler = async (req, res) => {
   try {
-    console.log('Express API: Fetching news list...');
-    res.json([]);
+    const { resources: questions } = await container.items
+      .query({
+        query: "SELECT * FROM c ORDER BY c.createdAt DESC"
+      })
+      .fetchAll();
+    res.json(questions);
   } catch (error) {
-    console.error('Express API Error:', error);
-    res.status(500).json({ error: 'Failed to fetch news list' });
+    console.error('Error fetching questions:', error);
+    res.status(500).json({ error: 'Failed to fetch questions' });
   }
-});
+};
 
-router.post('/english/news/generate', async (req, res) => {
+// 問題の作成
+const createQuestion: RequestHandler = async (req, res) => {
   try {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-    const progress = {
-      step: 1,
-      total: 5,
-      message: 'ニュースを生成中...',
+    const newQuestion = {
+      ...req.body,
+      englishId: req.body.englishId || `question-${req.body.id}`
     };
 
-    const sendProgress = () => {
-      res.write(`data: ${JSON.stringify(progress)}\n\n`);
-    };
-
-    console.log('1. Starting news generation...');
-    sendProgress();
-
-    const newsPrompt = `Generate 3 current news summaries in the following format:
-    1. [Title]
-    [Brief summary]
-    2. [Title]
-    [Brief summary]
-    3. [Title]
-    [Brief summary]`;
-
-    console.log('2. Generating news with Azure OpenAI...');
-    const newsResponse = await axios.post(
-      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
-      {
-        messages: [{ role: 'user', content: newsPrompt }],
-        temperature: 0.7,
-        max_tokens: 800,
-      },
-      {
-        headers: {
-          'api-key': AZURE_CONFIG.openai.key,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const newsSummaries = newsResponse.data.choices[0].message?.content || '';
-    const firstNews = newsSummaries.split('2.')[0];
-
-    progress.step = 2;
-    progress.message = '会話文を生成中...';
-    sendProgress();
-
-    console.log('3. Generating conversation...');
-    const conversationPrompt = `Create a natural English conversation between two people (A and B) discussing the following news:\n${firstNews}\nMake it educational and include some useful vocabulary or expressions.`;
-
-    const conversationResponse = await axios.post(
-      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
-      {
-        messages: [{ role: 'user', content: conversationPrompt }],
-        temperature: 0.7,
-        max_tokens: 800,
-      },
-      {
-        headers: {
-          'api-key': AZURE_CONFIG.openai.key,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const conversation = conversationResponse.data.choices[0].message?.content || '';
-
-    progress.step = 3;
-    progress.message = '音声を生成中...';
-    sendProgress();
-
-    console.log('4. Generating audio...');
-    const speechResponse = await axios.post(
-      AZURE_CONFIG.speech.endpoint,
-      `<speak version='1.0' xml:lang='en-US'>
-        <voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>
-          ${conversation}
-        </voice>
-      </speak>`,
-      {
-        headers: {
-          'Ocp-Apim-Subscription-Key': AZURE_CONFIG.speech.key,
-          'Content-Type': 'application/ssml+xml',
-          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-        },
-        responseType: 'arraybuffer',
-      }
-    );
-
-    const audioFileName = `news-audio-${Date.now()}.mp3`;
-    const audioContainerClient = blobServiceClient.getContainerClient('english-news-audio');
-    const audioBlobClient = audioContainerClient.getBlockBlobClient(audioFileName);
-    await audioBlobClient.uploadData(Buffer.from(speechResponse.data), {
-      blobHTTPHeaders: { blobContentType: 'audio/mpeg' }
-    });
-
-    progress.step = 4;
-    progress.message = '画像を生成中...';
-    sendProgress();
-
-    console.log('5. Generating image...');
-    const imagePrompt = `Create a detailed image description for this news story that could be used with DALL-E:\n${firstNews}`;
-
-    const imageDescResponse = await axios.post(
-      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/chat/completions?api-version=2023-05-15`,
-      {
-        messages: [{ role: 'user', content: imagePrompt }],
-        temperature: 0.7,
-        max_tokens: 800,
-      },
-      {
-        headers: {
-          'api-key': AZURE_CONFIG.openai.key,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const imageDescription = imageDescResponse.data.choices[0].message?.content || '';
-
-    const imageResponse = await axios.post(
-      `${AZURE_CONFIG.openai.endpoint}/openai/deployments/${AZURE_CONFIG.openai.deploymentName}/images/generations?api-version=2023-06-01-preview`,
-      {
-        prompt: imageDescription,
-        n: 1,
-        size: '1024x1024',
-      },
-      {
-        headers: {
-          'api-key': AZURE_CONFIG.openai.key,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const imageUrl = imageResponse.data.data[0].url;
-    if (!imageUrl) {
-      throw new Error('Failed to generate image');
-    }
-
-    const imageData = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-    
-    const imageFileName = `news-image-${Date.now()}.png`;
-    const imageContainerClient = blobServiceClient.getContainerClient('english-news-images');
-    const imageBlobClient = imageContainerClient.getBlockBlobClient(imageFileName);
-    await imageBlobClient.uploadData(Buffer.from(imageData.data), {
-      blobHTTPHeaders: { blobContentType: 'image/png' }
-    });
-
-    progress.step = 5;
-    progress.message = '完了';
-    
-    const result = {
-      id: Date.now().toString(),
-      title: firstNews.split('\n')[0].replace('1. ', ''),
-      content: newsSummaries,
-      conversation,
-      audioUrl: audioBlobClient.url,
-      imageUrl: imageBlobClient.url,
-      createdAt: new Date().toISOString(),
-      isPublished: false,
-      publishedAt: null,
-    };
-
-    console.log('6. Generation complete');
-    res.write(`data: ${JSON.stringify({ ...progress, result })}\n\n`);
-    res.end();
+    const { resource: createdQuestion } = await container.items.create(newQuestion);
+    res.status(201).json(createdQuestion);
   } catch (error) {
-    console.error('Error generating news content:', error);
-    res.write(`data: ${JSON.stringify({ error: 'Failed to generate news content' })}\n\n`);
-    res.end();
+    console.error('Error creating question:', error);
+    res.status(500).json({ error: 'Failed to create question' });
   }
-});
+};
 
-router.patch('/english/news/:id', async (req, res) => {
+// 問題の更新
+const updateQuestion: RequestHandler = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    console.log('Express API: Updating news:', { id, updateData });
-    res.json({ id, ...updateData });
-  } catch (error) {
-    console.error('Express API Error:', error);
-    res.status(500).json({ error: 'Failed to update news' });
-  }
-});
 
-router.delete('/english/news/:id', async (req, res) => {
+    const { englishId } = updateData;
+    const partitionKey = englishId || id;
+
+    const { resource: existingQuestion } = await container.item(id, partitionKey).read();
+    if (!existingQuestion) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+
+    const updatedQuestion = {
+      ...existingQuestion,
+      ...updateData,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { resource: result } = await container.item(id, partitionKey).replace(updatedQuestion);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating question:', error);
+    res.status(500).json({ error: 'Failed to update question' });
+  }
+};
+
+// 問題の削除
+const deleteQuestion: RequestHandler = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('Express API: Deleting news:', id);
+    const { resource: existingQuestion } = await container.item(id, id).read();
+    if (!existingQuestion) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+
+    const partitionKey = existingQuestion.englishId || id;
+    await container.item(id, partitionKey).delete();
     res.status(204).send();
   } catch (error) {
-    console.error('Express API Error:', error);
-    res.status(500).json({ error: 'Failed to delete news' });
+    console.error('Error deleting question:', error);
+    res.status(500).json({ error: 'Failed to delete question' });
   }
-});
+};
+
+// 英作文問題の取得
+const getWritingQuestion: RequestHandler = async (req, res) => {
+  try {
+    const category = req.query.category as string;
+    const level = req.query.level as string;
+
+    if (!category || !level) {
+      res.status(400).json({ error: 'Missing parameters' });
+      return;
+    }
+
+    const { resources: questions } = await container.items
+      .query({
+        query: "SELECT * FROM c WHERE c.type = 'writing' AND c.category = @category AND c.level = @level",
+        parameters: [
+          { name: '@category', value: category },
+          { name: '@level', value: level }
+        ]
+      })
+      .fetchAll();
+
+    if (questions.length === 0) {
+      res.status(404).json({ error: 'No questions found' });
+      return;
+    }
+
+    // ランダムに1問選択
+    const randomIndex = Math.floor(Math.random() * questions.length);
+    const question = questions[randomIndex];
+
+    res.json(question);
+  } catch (error) {
+    console.error('Error fetching writing question:', error);
+    res.status(500).json({ error: 'Failed to fetch writing question' });
+  }
+};
+
+// 長文読解問題の取得
+const getReadingQuestion: RequestHandler = async (req, res) => {
+  try {
+    const category = req.query.category as string;
+    const level = req.query.level as string;
+
+    console.log('Reading question request:', { category, level });
+
+    let query = "SELECT * FROM c WHERE c.type = 'reading'";
+    const parameters: { name: string; value: string }[] = [];
+
+    if (category && category !== 'all') {
+      query += " AND c.category = @category";
+      parameters.push({ name: '@category', value: category });
+    }
+
+    if (level && level !== 'all') {
+      query += " AND c.level = @level";
+      parameters.push({ name: '@level', value: level });
+    }
+
+    console.log('Query:', query);
+    console.log('Parameters:', parameters);
+
+    const { resources: questions } = await container.items
+      .query({
+        query,
+        parameters
+      })
+      .fetchAll();
+
+    console.log('Found questions:', questions);
+
+    if (questions.length === 0) {
+      console.log('No questions found');
+      res.status(404).json({ error: 'No questions found' });
+      return;
+    }
+
+    // ランダムに1問選択
+    const randomIndex = Math.floor(Math.random() * questions.length);
+    const question = questions[randomIndex];
+
+    console.log('Selected question:', question);
+    res.json(question);
+  } catch (error) {
+    console.error('Error fetching reading question:', error);
+    res.status(500).json({ error: 'Failed to fetch reading question' });
+  }
+};
+
+// 英作文の回答を送信
+const submitWritingAnswer: RequestHandler = async (req, res) => {
+  try {
+    const { questionId, answer } = req.body;
+
+    if (!questionId || !answer) {
+      res.status(400).json({ error: 'Missing parameters' });
+      return;
+    }
+
+    // TODO: 回答の評価処理を実装
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error submitting writing answer:', error);
+    res.status(500).json({ error: 'Failed to submit writing answer' });
+  }
+};
+
+// 長文読解の回答を送信
+const submitReadingAnswer: RequestHandler = async (req, res) => {
+  try {
+    const { questionId, answers } = req.body;
+
+    if (!questionId || !answers) {
+      res.status(400).json({ error: 'Missing parameters' });
+      return;
+    }
+
+    const { resource: question } = await container.item(questionId, questionId).read();
+    if (!question) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+
+    const results = question.questions.map((subQuestion: any, index: number) => {
+      const isCorrect = answers[index] === subQuestion.correctAnswer;
+      return {
+        isCorrect,
+        correctAnswer: subQuestion.options[subQuestion.correctAnswer],
+        yourAnswer: subQuestion.options[answers[index]],
+        explanation: subQuestion.explanation
+      };
+    });
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error submitting reading answer:', error);
+    res.status(500).json({ error: 'Failed to submit reading answer' });
+  }
+};
+
+// ルーターの設定
+// ルーティングの設定
+router.get('/questions/reading', getReadingQuestion);
+router.get('/questions/writing', getWritingQuestion);
+router.post('/questions/reading/submit', express.json(), submitReadingAnswer);
+router.post('/questions/writing/submit', express.json(), submitWritingAnswer);
+router.post('/questions/reading/submit', express.json(), submitReadingAnswer);
+router.get('/questions', getQuestions);
+router.post('/questions', express.json(), createQuestion);
+router.put('/questions/:id', express.json(), updateQuestion);
+router.delete('/questions/:id', deleteQuestion);
 
 export default router;

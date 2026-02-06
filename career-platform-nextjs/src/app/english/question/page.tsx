@@ -15,6 +15,16 @@ const sections = [
     icon: '📚'
   },
   {
+    id: 'reading',
+    title: '長文読解',
+    description: '様々なトピックの英語長文を読んで、内容理解力を養います。ビジネス、学術、一般的な文章など、幅広い分野の問題に挑戦できます。',
+    href: '/english/question/reading',
+    color: 'bg-yellow-100',
+    textColor: 'text-yellow-800',
+    borderColor: 'border-yellow-200',
+    icon: '📖'
+  },
+  {
     id: 'vocabulary',
     title: '単語学習',
     description: 'TOEIC頻出単語から実践的な表現まで、効率的に語彙力を強化します。フラッシュカード形式で楽しく学習できます。',
@@ -90,6 +100,16 @@ export default function QuestionPage() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="font-semibold">AIの未来について</p>
+                  <p className="text-sm text-gray-500">長文読解</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">2024/1/29</p>
+                  <p className="text-green-600">正解率: 80%</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="font-semibold">自己紹介文を書く</p>
                   <p className="text-sm text-gray-500">英作文</p>
                 </div>
@@ -144,6 +164,27 @@ export default function QuestionPage() {
               </div>
               <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200">
                 <div className="w-[45%] shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">長文読解</h3>
+            <div className="relative pt-1">
+              <div className="flex mb-2 items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-yellow-600 bg-yellow-200">
+                    進捗
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-semibold inline-block text-yellow-600">
+                    15%
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-yellow-200">
+                <div className="w-[15%] shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-yellow-500"></div>
               </div>
             </div>
           </div>

@@ -6,47 +6,23 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import CreateQuestionModal from '@/components/ui/CreateQuestionModal';
 import { EditQuestionModal } from '@/components/ui/EditQuestionModal';
-
-interface Option {
-  text: string;
-  imageUrl: string | null;
-}
-
-interface Question {
-  id: string;
-  certificationId: string;
-  questionNumber: number;
-  question: string;
-  questionImage: string | null;
-  options: Option[];
-  correctAnswers: number[];
-  explanation: string;
-  explanationImages: string[];
-  year: string;
-  category: string;
-  mainCategory: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { searchQuestions, updateQuestion, getCertification, getQuestions } from '@/lib/api';
+import { Certification, CertificationQuestion, Option } from '@/types/api';
 
 export default function QuestionsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const certificationId = params.id;
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<CertificationQuestion[]>([]);
+  const [filteredQuestions, setFilteredQuestions] = useState<CertificationQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<CertificationQuestion | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [years, setYears] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<Set<string>>(new Set());
-  interface Certification {
-    category: string;
-    questions: Question[];
-  }
   const [certification, setCertification] = useState<Certification | null>(null);
 
   useEffect(() => {
@@ -55,33 +31,30 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
 
   const fetchCertification = async () => {
     try {
-      const response = await fetch(`/api/certifications/${certificationId}`);
-      if (!response.ok) throw new Error('Failed to fetch certification');
-      const data = await response.json();
+      const data = await getCertification(certificationId);
       setCertification(data);
-      fetchQuestions(data);
+      await fetchQuestions();
     } catch (error) {
       console.error('Error fetching certification:', error);
     }
   };
 
-  const fetchQuestions = async (cert: Certification) => {
+  const fetchQuestions = async () => {
     try {
       setIsLoading(true);
-      if (!cert.questions) {
-        setQuestions([]);
-        return;
-      }
-
+      
+      // APIから直接問題を取得
+      const questionsData = await getQuestions(certificationId);
+      
       // 全ての問題を設定（検索用）
-      setQuestions(cert.questions);
+      setQuestions(questionsData || []);
       // 初期状態では問題を表示しない
       setFilteredQuestions([]);
 
       // 年度とカテゴリーの一覧を収集
       const yearSet = new Set<string>();
       const categorySet = new Set<string>();
-      cert.questions.forEach(q => {
+      (questionsData || []).forEach((q: CertificationQuestion) => {
         if (q.year) yearSet.add(q.year);
         if (q.category) categorySet.add(q.category);
       });
@@ -89,6 +62,8 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
       setCategories(categorySet);
     } catch (error) {
       console.error('Error fetching questions:', error);
+      setQuestions([]);
+      setFilteredQuestions([]);
     } finally {
       setIsLoading(false);
     }
@@ -101,19 +76,13 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
       setIsLoading(true);
       console.log('検索開始');
 
-      // 検索パラメータの構築
-      const params = new URLSearchParams();
-      if (searchQuery) params.append('keyword', searchQuery);
-      if (selectedYear) params.append('year', selectedYear);
-      if (selectedCategory) params.append('category', selectedCategory);
+      const params = {
+        keyword: searchQuery || undefined,
+        year: selectedYear || undefined,
+        category: selectedCategory || undefined
+      };
       
-      // APIエンドポイントの構築
-      const url = `/api/certifications/${certificationId}/questions/search?${params.toString()}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('検索に失敗しました');
-      
-      const data = await response.json();
+      const data = await searchQuestions(certificationId, params);
       setFilteredQuestions(data);
       console.log('検索結果:', data.length, '件');
     } catch (error) {
@@ -233,7 +202,9 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
             <div key={question.id} className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500">#{question.questionNumber}</span>
+                  {question.questionNumber && (
+                    <span className="text-sm font-semibold text-blue-600">問{question.questionNumber}</span>
+                  )}
                   <span className="text-sm text-gray-500">{question.year}</span>
                   <span className="text-sm text-gray-500">{question.category}</span>
                 </div>
@@ -254,7 +225,12 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
               <div className="space-y-4">
-                <p className="text-lg font-medium">{highlightText(question.question)}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  {question.questionNumber && (
+                    <span className="text-lg font-bold text-blue-600">問{question.questionNumber}</span>
+                  )}
+                  <p className="text-lg font-medium">{highlightText(question.question)}</p>
+                </div>
                 <div className="space-y-2">
                   {question.options.map((option, index) => {
                     const letter = String.fromCharCode(65 + index);
@@ -313,7 +289,7 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
             // 年度とカテゴリーの選択肢は更新
             const yearSet = new Set<string>();
             const categorySet = new Set<string>();
-            certification.questions.forEach(q => {
+            (certification.questions || []).forEach(q => {
               if (q.year) yearSet.add(q.year);
               if (q.category) categorySet.add(q.category);
             });
@@ -341,16 +317,7 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
           }}
           onSave={async (updatedQuestion) => {
             try {
-              const response = await fetch(`/api/certifications/questions/${updatedQuestion.id}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updatedQuestion),
-              });
-
-              if (!response.ok) throw new Error('Failed to update question');
-
+              await updateQuestion(certificationId, updatedQuestion.id, updatedQuestion);
               setIsEditModalOpen(false);
               setSelectedQuestion(null);
               // 問題編集後も現在の検索条件を維持したまま検索を再実行

@@ -1,16 +1,11 @@
 import { useState } from 'react';
 import { Button } from './button';
+import Image from 'next/image';
 
 interface CreateCertificationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: {
-    name: string;
-    description: string;
-    category: string;
-    difficulty: 'beginner' | 'intermediate' | 'advanced';
-    estimatedStudyTime: string;
-  }) => void;
+  onSave: (data: FormData) => void;
 }
 
 const categories = [
@@ -28,24 +23,71 @@ const categories = [
 export function CreateCertificationModal({ isOpen, onClose, onSave }: CreateCertificationModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState('it'); // デフォルトでITカテゴリーを選択
   const [difficulty, setDifficulty] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [estimatedStudyTime, setEstimatedStudyTime] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+
+    const file = e.target.files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('画像ファイルを選択してください');
+      return;
+    }
+
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
+
+    // バリデーション
+    if (!name || !description || !category || !difficulty || !estimatedStudyTime) {
+      alert('必須項目を入力してください');
+      return;
+    }
+    
+    // フォームデータの内容をログ出力
+    console.log('Form values:', {
       name,
       description,
       category,
       difficulty,
-      estimatedStudyTime
+      estimatedStudyTime,
+      hasImage: !!selectedImage
     });
-    setName('');
-    setDescription('');
-    setCategory('');
-    setDifficulty('beginner');
-    setEstimatedStudyTime('');
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+    formData.append('category', category);
+    formData.append('difficulty', difficulty);
+    formData.append('estimatedStudyTime', estimatedStudyTime);
+    if (selectedImage) {
+      formData.append('image', selectedImage);
+    }
+
+    try {
+      await onSave(formData);
+      // 成功した後にフォームをリセット
+      setName('');
+      setDescription('');
+      setCategory('');
+      setDifficulty('beginner');
+      setEstimatedStudyTime('');
+      setSelectedImage(null);
+      setPreviewUrl(null);
+    } catch (error) {
+      console.error('Error saving certification:', error);
+    }
   };
 
   if (!isOpen) return null;
@@ -73,6 +115,52 @@ export function CreateCertificationModal({ isOpen, onClose, onSave }: CreateCert
                   <p className="text-sm text-center">{cat.name}</p>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              画像
+            </label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                {previewUrl ? (
+                  <div className="relative w-full h-48">
+                    <Image
+                      src={previewUrl}
+                      alt="プレビュー"
+                      fill
+                      className="object-cover rounded-lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-400">画像が選択されていません</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                  id="certification-image"
+                />
+                <label htmlFor="certification-image">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    asChild
+                  >
+                    <span>画像を選択</span>
+                  </Button>
+                </label>
+              </div>
+              <p className="text-sm text-gray-500">
+                推奨サイズ: 400x200px (アスペクト比 2:1)
+              </p>
             </div>
           </div>
 

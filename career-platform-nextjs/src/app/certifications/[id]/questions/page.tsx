@@ -3,6 +3,8 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase-client';
+import { getProgress } from '@/lib/api';
 import { CertificationChapter } from '@/types/api';
 
 interface Question {
@@ -41,28 +43,43 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
   });
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<any | null>(null);
   const certificationId = params.id;
 
   useEffect(() => {
-    fetchQuestions();
-  }, [certificationId]);
+    const init = async () => {
+      // 認証ユーザー取得
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) setUserId(user.id);
+      } catch {}
+
+      await fetchQuestions();
+
+      // 進捗取得
+      try {
+        if (userId) {
+          const p = await getProgress(certificationId, userId);
+          setProgress(p);
+        }
+      } catch (e) {
+        console.warn('progress fetch skipped or failed');
+      }
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [certificationId, userId]);
 
   const fetchQuestions = async () => {
     try {
       setIsLoading(true);
-      const certResponse = await fetch(`/api/certifications/${certificationId}`);
-      if (!certResponse.ok) throw new Error('Failed to fetch certification');
-      const certification = await certResponse.json();
+      const questionsResponse = await fetch(`${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/api/certifications/${certificationId}/questions`);
+      if (!questionsResponse.ok) throw new Error('Failed to fetch questions');
+      const questions = await questionsResponse.json();
 
-      console.log('Certification data:', certification);
-
-      if (!certification.questions) {
-        console.log('No questions found');
-        setQuestions([]);
-        return;
-      }
-
-      console.log('Questions from database:', certification.questions);
+      console.log('Questions from database:', questions);
 
       // 利用可能なフィルターオプションを収集
       const newAvailableFilters: FilterOptions = {
@@ -71,12 +88,12 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
         subCategories: new Set(),
       };
 
-      certification.questions.forEach((question: Question) => {
+      questions.forEach((question: Question) => {
         if (question.year) newAvailableFilters.mainCategories.add(question.year);
         if (question.category) newAvailableFilters.subCategories.add(question.category);
       });
 
-      setQuestions(certification.questions);
+      setQuestions(questions);
       setAvailableFilters(newAvailableFilters);
     } catch (error) {
       console.error('Error fetching questions:', error);

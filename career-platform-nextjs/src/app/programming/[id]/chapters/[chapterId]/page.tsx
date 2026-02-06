@@ -3,34 +3,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import VideoPlayer from '@/components/ui/VideoPlayer';
-
-interface Chapter {
-  id: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  duration: string;
-  exercises: {
-    id: string;
-    title: string;
-    description: string;
-    testCases: {
-      input: string;
-      expectedOutput: string;
-    }[];
-  }[];
-}
+import { getProgrammingChapter } from '@/lib/api';
+import { ProgrammingChapter } from '@/types/api';
 
 export default function ChapterPage({ params }: { params: { id: string; chapterId: string } }) {
-  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [chapter, setChapter] = useState<ProgrammingChapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchChapter = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/programming/chapters/${params.chapterId}?languageId=${params.id}`);
-      if (!response.ok) throw new Error('Failed to fetch chapter');
-      const data = await response.json();
+      const data = await getProgrammingChapter(params.chapterId, params.id);
       setChapter(data);
     } catch (error) {
       console.error('Error fetching chapter:', error);

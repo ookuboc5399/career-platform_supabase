@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProgrammingChapters, createProgrammingChapter } from '@/lib/cosmos-db';
+import { getProgrammingChapters, createProgrammingChapter } from '@/lib/programming-data';
 import { CONTAINERS } from '@/lib/storage';
 import { uploadFile } from '@/lib/storage';
 

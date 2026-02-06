@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { getUniversities, scrapeUniversities, updateUniversity, deleteUniversity } from '@/lib/api';
+import { getUniversities, scrapeUniversities, updateUniversity, deleteUniversity, importUniversitiesFromSheet } from '@/lib/api';
 import { EditUniversityModal } from '@/components/ui/EditUniversityModal';
 import { Button } from '@/components/ui/button';
 
@@ -26,6 +26,8 @@ export default function UniversitiesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScraping, setIsScraping] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -62,14 +64,43 @@ export default function UniversitiesPage() {
   const handleScrape = async () => {
     try {
       setIsScraping(true);
+      setError(null);
+      setSuccessMessage(null);
       const result = await scrapeUniversities();
       console.log('Scraping result:', result);
+      
+      // スプレッドシートへの書き込み結果も含めたメッセージを作成
+      let message = `大学情報の収集が完了しました。Supabase追加: ${result.added}件、合計: ${result.total}件`;
+      if (result.sheetWritten !== undefined) {
+        message += ` | スプレッドシート追加: ${result.sheetWritten}件、スキップ: ${result.sheetSkipped}件、スプレッドシート合計: ${result.sheetTotal}件`;
+      }
+      
+      setSuccessMessage(message);
       await fetchUniversities();
     } catch (error) {
       console.error('Failed to scrape universities:', error);
       setError('大学情報の収集に失敗しました');
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  const handleImportFromSheet = async () => {
+    try {
+      setIsImporting(true);
+      setError(null);
+      setSuccessMessage(null);
+      const result = await importUniversitiesFromSheet();
+      console.log('Import result:', result);
+      
+      let message = `${result.message}（追加: ${result.added}件、スキップ: ${result.skipped}件、合計: ${result.total}件）`;
+      setSuccessMessage(message);
+      await fetchUniversities();
+    } catch (error) {
+      console.error('Failed to import universities from sheet:', error);
+      setError(error instanceof Error ? error.message : 'スプレッドシートからのインポートに失敗しました');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -140,13 +171,22 @@ export default function UniversitiesPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">大学情報管理</h1>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleImportFromSheet}
+            disabled={isImporting || isScraping}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            {isImporting ? 'インポート中...' : 'スプレッドシートからインポート'}
+          </Button>
         <Button
           onClick={handleScrape}
-          disabled={isScraping}
+            disabled={isScraping || isImporting}
           className="bg-blue-600 hover:bg-blue-700"
         >
           {isScraping ? '収集中...' : '大学情報を収集'}
         </Button>
+        </div>
       </div>
 
       <div className="mb-8">
@@ -169,6 +209,12 @@ export default function UniversitiesPage() {
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
           <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+          <p className="text-green-600">{successMessage}</p>
         </div>
       )}
 

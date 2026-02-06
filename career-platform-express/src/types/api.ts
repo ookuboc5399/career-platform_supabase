@@ -56,3 +56,30 @@ export interface CreateCertificationDto {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedStudyTime: string;
 }
+
+export interface NewsContent {
+  id: string;
+  title: string;
+  content: string;
+  sourceUrl?: string;
+  audioUrl?: string;
+  audioFileName?: string;
+  imageUrl?: string;
+  createdAt: string;
+  isPublished: boolean;
+  publishedAt: string | null;
+  conversation?: string;
+  vocabulary?: Array<{
+    word: string;
+    definition: string;
+    example: string;
+  }>;
+  grammar?: Array<{
+    point: string;
+    explanation: string;
+  }>;
+  expressions?: Array<{
+    phrase: string;
+    meaning: string;
+  }>;
+}

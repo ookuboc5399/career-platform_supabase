@@ -6,30 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
-import { Textarea } from "@/components/ui/textarea";
 import Image from 'next/image';
-import { Question } from '@/types/english';
-import { processGoogleDriveImages } from '@/lib/image-processor';
+import { Question, ReadingQuestion, VocabularyQuestion } from '@/types/english';
 import ChatQuestionGenerator from './ChatQuestionGenerator';
-
-const defaultFolderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID;
+import EditQuestionDialog from './EditQuestionDialog';
+import CreateReadingQuestionDialog from './CreateReadingQuestionDialog';
+import CreateWritingQuestionDialog from './CreateWritingQuestionDialog';
+import CreateVocabularyQuestionDialog from './CreateVocabularyQuestionDialog';
 
 export default function QuestionManager() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedType, setSelectedType] = useState<'grammar' | 'vocabulary' | 'writing'>('grammar');
-  const [searchType, setSearchType] = useState<'all' | 'grammar' | 'vocabulary' | 'writing'>('all');
+  const [searchType, setSearchType] = useState<'all' | 'grammar' | 'vocabulary' | 'writing' | 'reading'>('all');
   const [searchText, setSearchText] = useState('');
-  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateReadingModalOpen, setIsCreateReadingModalOpen] = useState(false);
+  const [isCreateWritingModalOpen, setIsCreateWritingModalOpen] = useState(false);
+  const [isCreateVocabularyModalOpen, setIsCreateVocabularyModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [generatedContent, setGeneratedContent] = useState<string>('');
-  const [googleDriveFolderId, setGoogleDriveFolderId] = useState(defaultFolderId || '');
-  const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
-  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState<number>(0);
 
   useEffect(() => {
     fetchQuestions();
@@ -50,10 +44,18 @@ export default function QuestionManager() {
     // テキストでフィルター
     if (searchText) {
       const searchLower = searchText.toLowerCase();
-      filtered = filtered.filter(q => 
-        q.content.question.toLowerCase().includes(searchLower) ||
-        q.content.explanation.toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter(q => {
+        const matchQuestion = q.content.question.toLowerCase().includes(searchLower);
+        const matchExplanation = q.content.explanation?.toLowerCase().includes(searchLower);
+        const matchJapanese = Array.isArray(q.content.japanese)
+          ? q.content.japanese.some(text => text?.toLowerCase().includes(searchLower))
+          : q.content.japanese?.toLowerCase().includes(searchLower);
+        const matchEnglish = Array.isArray(q.content.english)
+          ? q.content.english.some(text => text?.toLowerCase().includes(searchLower))
+          : q.content.english?.toLowerCase().includes(searchLower);
+        
+        return matchQuestion || matchExplanation || matchJapanese || matchEnglish;
+      });
     }
 
     setFilteredQuestions(filtered);
@@ -61,85 +63,14 @@ export default function QuestionManager() {
 
   const fetchQuestions = async () => {
     try {
-      const response = await fetch('/api/admin/english/questions');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions`);
       if (!response.ok) throw new Error('Failed to fetch questions');
       const data = await response.json();
+      console.log('Fetched questions:', data);
       setQuestions(data);
       setFilteredQuestions(data);
     } catch (error) {
       console.error('Error fetching questions:', error);
-    }
-  };
-
-  const handleGoogleDriveProcess = async () => {
-    if (!googleDriveFolderId) {
-      alert('Google DriveフォルダIDを入力してください');
-      return;
-    }
-
-    setIsGenerating(true);
-    setIsGenerateModalOpen(true);
-    try {
-      const chapters = await processGoogleDriveImages(googleDriveFolderId);
-      console.log('Generated chapters:', chapters);
-
-      const newQuestions: Question[] = chapters.map((chapter, index) => ({
-        id: `question-${Date.now()}-${index}`,
-        type: selectedType,
-        imageUrl: chapter.questions[0]?.explanationImages?.[0] || '',
-        content: {
-          question: chapter.title,
-          options: chapter.questions[0]?.options || [],
-          correctAnswers: chapter.questions[0]?.correctAnswers || [],
-          explanation: chapter.questions[0]?.explanation || '',
-        },
-        createdAt: new Date().toISOString(),
-      }));
-
-      setGeneratedQuestions(newQuestions);
-      
-      if (newQuestions.length > 0) {
-        const firstQuestion = newQuestions[0];
-        setImagePreview(firstQuestion.imageUrl || null);
-        setGeneratedContent(JSON.stringify(firstQuestion.content, null, 2));
-        setSelectedQuestionIndex(0);
-      }
-    } catch (error) {
-      console.error('Error processing Google Drive images:', error);
-      alert('画像の処理中にエラーが発生しました');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleQuestionSelect = (index: number) => {
-    const question = generatedQuestions[index];
-        setImagePreview(question.imageUrl || null);
-    setGeneratedContent(JSON.stringify(question.content, null, 2));
-    setSelectedQuestionIndex(index);
-  };
-
-  const handleSaveAll = async () => {
-    try {
-      for (const question of generatedQuestions) {
-        const response = await fetch('/api/admin/english/questions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(question),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to save question');
-        }
-      }
-
-      setIsGenerateModalOpen(false);
-      fetchQuestions();
-    } catch (error) {
-      console.error('Error saving questions:', error);
-      alert('問題の保存中にエラーが発生しました');
     }
   };
 
@@ -148,16 +79,17 @@ export default function QuestionManager() {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateQuestion = async () => {
-    if (!editingQuestion) return;
-
+  const handleUpdateQuestion = async (updatedQuestion: Question) => {
     try {
-      const response = await fetch(`/api/admin/english/questions/${editingQuestion.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions/${updatedQuestion.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editingQuestion),
+        body: JSON.stringify({
+          ...updatedQuestion,
+          englishId: updatedQuestion.englishId || `question-${updatedQuestion.id}`
+        }),
       });
 
       if (!response.ok) {
@@ -172,11 +104,115 @@ export default function QuestionManager() {
     }
   };
 
+  const handleCreateReadingQuestion = async (newQuestion: ReadingQuestion) => {
+    try {
+      const questionData: Question = {
+        id: '',
+        type: 'reading',
+        imageUrl: '',
+        content: {
+          question: newQuestion.title,
+          options: [],
+          correctAnswers: [],
+          explanation: '',
+          format: 'reading',
+          ...newQuestion
+        },
+        difficulty: newQuestion.level,
+        createdAt: new Date().toISOString()
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(questionData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create question');
+      }
+
+      setIsCreateReadingModalOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error creating question:', error);
+      alert('問題の作成中にエラーが発生しました');
+    }
+  };
+
+  const handleCreateWritingQuestion = async (newQuestion: Question) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newQuestion),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create question');
+      }
+
+      setIsCreateWritingModalOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error creating question:', error);
+      alert('問題の作成中にエラーが発生しました');
+    }
+  };
+
+  const handleCreateVocabularyQuestion = async (newQuestion: VocabularyQuestion) => {
+    try {
+      const questionData: Question = {
+        id: '',
+        type: 'vocabulary',
+        imageUrl: '',
+        content: {
+          question: newQuestion.word,
+          options: [],
+          correctAnswers: [],
+          explanation: newQuestion.meaning,
+          format: 'vocabulary',
+          word: newQuestion.word,
+          meaning: newQuestion.meaning,
+          pronunciation: newQuestion.pronunciation,
+          partOfSpeech: newQuestion.partOfSpeech,
+          examples: newQuestion.examples,
+          synonyms: newQuestion.synonyms,
+          antonyms: newQuestion.antonyms
+        },
+        difficulty: newQuestion.level,
+        createdAt: new Date().toISOString()
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(questionData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create question');
+      }
+
+      setIsCreateVocabularyModalOpen(false);
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error creating question:', error);
+      alert('問題の作成中にエラーが発生しました');
+    }
+  };
+
   const handleDeleteQuestion = async (questionId: string) => {
     if (!confirm('この問題を削除してもよろしいですか？')) return;
 
     try {
-      const response = await fetch(`/api/admin/english/questions/${questionId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/english/questions/${questionId}`, {
         method: 'DELETE',
       });
 
@@ -199,6 +235,8 @@ export default function QuestionManager() {
         return '単語';
       case 'writing':
         return '英作文';
+      case 'reading':
+        return '長文読解';
       default:
         return type;
     }
@@ -206,79 +244,68 @@ export default function QuestionManager() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <h2 className="text-xl font-bold mb-4">Google Driveから問題を生成</h2>
-        <div className="space-y-4">
-          <div>
-            <Label>問題タイプ</Label>
-            <Select
-              value={selectedType}
-              onValueChange={(value: string) => setSelectedType(value as 'grammar' | 'vocabulary' | 'writing')}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="タイプを選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grammar">文法</SelectItem>
-                <SelectItem value="vocabulary">単語</SelectItem>
-                <SelectItem value="writing">英作文</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>Google DriveフォルダID</Label>
-            <div className="flex gap-4">
-              <input
-                type="text"
-                value={googleDriveFolderId}
-                onChange={(e) => setGoogleDriveFolderId(e.target.value)}
-                placeholder="Google DriveフォルダID"
-                className="flex-1 p-2 border rounded-lg"
-              />
-              <Button
-                onClick={handleGoogleDriveProcess}
-                disabled={isGenerating}
-                className="min-w-[120px]"
-              >
-                {isGenerating ? '生成中...' : '生成'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       <ChatQuestionGenerator />
 
       <Card className="p-6">
-        <h2 className="text-xl font-bold mb-4">問題一覧</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">問題一覧</h2>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setIsCreateReadingModalOpen(true)}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              長文読解問題作成
+            </Button>
+            <Button
+              onClick={() => setIsCreateWritingModalOpen(true)}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              英作文問題作成
+            </Button>
+            <Button
+              onClick={() => setIsCreateVocabularyModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              単語問題作成
+            </Button>
+          </div>
+        </div>
         <div className="space-y-4">
           <div className="flex gap-4 mb-4">
             <div className="w-1/3">
               <Label>タイプで絞り込み</Label>
               <Select
                 value={searchType}
-                onValueChange={(value: string) => setSearchType(value as 'all' | 'grammar' | 'vocabulary' | 'writing')}
+                onValueChange={(value: string) => setSearchType(value as 'all' | 'grammar' | 'vocabulary' | 'writing' | 'reading')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="タイプを選択" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="all">すべて</SelectItem>
                   <SelectItem value="grammar">文法</SelectItem>
                   <SelectItem value="vocabulary">単語</SelectItem>
                   <SelectItem value="writing">英作文</SelectItem>
+                  <SelectItem value="reading">長文読解</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex-1">
               <Label>問題文で検索</Label>
-              <Input
-                type="text"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="問題文を入力..."
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="問題文を入力..."
+                />
+                <Button
+                  onClick={filterQuestions}
+                  className="whitespace-nowrap"
+                >
+                  検索
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -299,9 +326,28 @@ export default function QuestionManager() {
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2 items-center">
-                      <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
-                        {getTypeText(question.type)}
-                      </span>
+                      <div className="flex gap-2">
+                        <span className="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">
+                          {getTypeText(question.type)}
+                        </span>
+                        {question.difficulty && (
+                          <span className={`text-sm px-2 py-1 rounded ${
+                            question.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+                            question.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {question.difficulty === 'beginner' ? '初級' :
+                             question.difficulty === 'intermediate' ? '中級' : '上級'}
+                          </span>
+                        )}
+                        {question.type === 'writing' && question.category && (
+                          <span className="text-sm px-2 py-1 rounded bg-purple-100 text-purple-800">
+                            {question.category === 'book' ? '書籍' :
+                             question.category === 'school' ? '学校問題' :
+                             question.category === 'ai' ? 'AI問題' : 'レビュー'}
+                          </span>
+                        )}
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
@@ -323,29 +369,68 @@ export default function QuestionManager() {
                     </span>
                   </div>
                   <div className="space-y-4">
-                    <p className="font-medium">{question.content.question}</p>
-                    <div className="space-y-2">
-                      {question.content.options.map((option, index) => (
-                        <div
-                          key={index}
-                          className={`p-3 rounded-md ${
-                            question.content.correctAnswers.includes(index + 1)
-                              ? 'bg-green-50 border border-green-200'
-                              : 'bg-gray-50'
-                          }`}
-                        >
-                          <span className="font-semibold mr-2">{String.fromCharCode(65 + index)}.</span>
-                          <span>{option}</span>
-                          {question.content.correctAnswers.includes(index + 1) && (
-                            <span className="ml-2 text-green-600">✓</span>
+                    {question.content.format === 'translation' ? (
+                      <>
+                        <div className="space-y-2">
+                          <p className="font-medium">日本語:</p>
+                          {Array.isArray(question.content.japanese) ? (
+                            question.content.japanese.map((text, index) => (
+                              <div key={index} className="flex items-start gap-2">
+                                <span className="text-sm text-gray-500 mt-1">({index + 1})</span>
+                                <p className="p-3 bg-gray-50 rounded-md flex-1 whitespace-pre-wrap">{text}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="p-3 bg-gray-50 rounded-md whitespace-pre-wrap">
+                              {question.content.japanese || question.content.question}
+                            </p>
                           )}
                         </div>
-                      ))}
-                    </div>
-                    <div className="bg-gray-50 rounded-md p-4">
-                      <p className="font-medium text-gray-700 mb-2">解説:</p>
-                      <p className="text-gray-600">{question.content.explanation}</p>
-                    </div>
+                        <div className="space-y-2">
+                          <p className="font-medium">英語:</p>
+                          {Array.isArray(question.content.english) ? (
+                            question.content.english.map((text, index) => (
+                              <div key={index} className="flex items-start gap-2">
+                                <span className="text-sm text-gray-500 mt-1">({index + 1})</span>
+                                <p className="p-3 bg-green-50 border border-green-200 rounded-md flex-1 whitespace-pre-wrap">{text}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="p-3 bg-green-50 border border-green-200 rounded-md whitespace-pre-wrap">
+                              {question.content.english}
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">{question.content.question}</p>
+                        <div className="space-y-2">
+                          {question.content.options?.map((option, index) => (
+                            <div
+                              key={index}
+                              className={`p-3 rounded-md ${
+                                question.content.correctAnswers?.includes(index + 1)
+                                  ? 'bg-green-50 border border-green-200'
+                                  : 'bg-gray-50'
+                              }`}
+                            >
+                              <span className="font-semibold mr-2">{String.fromCharCode(65 + index)}.</span>
+                              <span>{option}</span>
+                              {question.content.correctAnswers?.includes(index + 1) && (
+                                <span className="ml-2 text-green-600">✓</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {question.content.explanation && (
+                      <div className="bg-gray-50 rounded-md p-4">
+                        <p className="font-medium text-gray-700 mb-2">解説:</p>
+                        <p className="text-gray-600">{question.content.explanation}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -354,164 +439,30 @@ export default function QuestionManager() {
         </div>
       </Card>
 
-      <Dialog open={isGenerateModalOpen} onOpenChange={setIsGenerateModalOpen}>
-        <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>生成された問題</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-8">
-            {generatedQuestions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {generatedQuestions.map((_, index) => (
-                  <Button
-                    key={index}
-                    onClick={() => handleQuestionSelect(index)}
-                    variant={selectedQuestionIndex === index ? "default" : "outline"}
-                  >
-                    問題 {index + 1}
-                  </Button>
-                ))}
-              </div>
-            )}
+      <EditQuestionDialog
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        question={editingQuestion}
+        onUpdate={handleUpdateQuestion}
+      />
 
-            {imagePreview && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">選択された画像</h3>
-                <Image
-                  src={imagePreview}
-                  alt="選択された画像"
-                  width={400}
-                  height={300}
-                  className="rounded-lg"
-                />
-              </div>
-            )}
+      <CreateReadingQuestionDialog
+        open={isCreateReadingModalOpen}
+        onOpenChange={setIsCreateReadingModalOpen}
+        onCreate={handleCreateReadingQuestion}
+      />
 
-            <div>
-              <h3 className="text-lg font-semibold mb-4">生成された問題</h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <pre className="whitespace-pre-wrap">{generatedContent}</pre>
-              </div>
-            </div>
+      <CreateWritingQuestionDialog
+        open={isCreateWritingModalOpen}
+        onOpenChange={setIsCreateWritingModalOpen}
+        onCreate={handleCreateWritingQuestion}
+      />
 
-            <div className="flex justify-end gap-4">
-              <Button
-                onClick={() => setIsGenerateModalOpen(false)}
-                variant="outline"
-              >
-                キャンセル
-              </Button>
-              {generatedQuestions.length > 0 && (
-                <Button
-                  onClick={handleSaveAll}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  すべて保存
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>問題の編集</DialogTitle>
-          </DialogHeader>
-          {editingQuestion && (
-            <div className="space-y-6">
-              <div>
-                <Label>問題文</Label>
-                <Textarea
-                  value={editingQuestion.content.question}
-                  onChange={(e) => setEditingQuestion({
-                    ...editingQuestion,
-                    content: {
-                      ...editingQuestion.content,
-                      question: e.target.value
-                    }
-                  })}
-                />
-              </div>
-
-              <div>
-                <Label>選択肢</Label>
-                {editingQuestion.content.options.map((option, index) => (
-                  <div key={index} className="flex gap-2 mt-2">
-                    <Input
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...editingQuestion.content.options];
-                        newOptions[index] = e.target.value;
-                        setEditingQuestion({
-                          ...editingQuestion,
-                          content: {
-                            ...editingQuestion.content,
-                            options: newOptions
-                          }
-                        });
-                      }}
-                    />
-                    <Select
-                      value={editingQuestion.content.correctAnswers.includes(index + 1) ? 'true' : 'false'}
-                      onValueChange={(value) => {
-                        const newCorrectAnswers = value === 'true'
-                          ? [...editingQuestion.content.correctAnswers, index + 1]
-                          : editingQuestion.content.correctAnswers.filter(a => a !== index + 1);
-                        setEditingQuestion({
-                          ...editingQuestion,
-                          content: {
-                            ...editingQuestion.content,
-                            correctAnswers: newCorrectAnswers
-                          }
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">正解</SelectItem>
-                        <SelectItem value="false">不正解</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-
-              <div>
-                <Label>解説</Label>
-                <Textarea
-                  value={editingQuestion.content.explanation}
-                  onChange={(e) => setEditingQuestion({
-                    ...editingQuestion,
-                    content: {
-                      ...editingQuestion.content,
-                      explanation: e.target.value
-                    }
-                  })}
-                />
-              </div>
-
-              <div className="flex justify-end gap-4">
-                <Button
-                  onClick={() => setIsEditModalOpen(false)}
-                  variant="outline"
-                >
-                  キャンセル
-                </Button>
-                <Button
-                  onClick={handleUpdateQuestion}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  更新
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CreateVocabularyQuestionDialog
+        open={isCreateVocabularyModalOpen}
+        onOpenChange={setIsCreateVocabularyModalOpen}
+        onCreate={handleCreateVocabularyQuestion}
+      />
     </div>
   );
 }

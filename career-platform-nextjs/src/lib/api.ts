@@ -9,7 +9,9 @@ import {
   ProgrammingChapter,
   CertificationProgress,
   EnglishProgress,
-  ProgrammingProgress
+  ProgrammingProgress,
+  CertificationQuestion,
+  NewsContent
 } from '@/types/api';
 
 const getBaseUrl = () => {
@@ -95,6 +97,132 @@ export async function getCertifications(): Promise<Certification[]> {
   return response.data;
 }
 
+export async function searchQuestions(certificationId: string, params: { keyword?: string; year?: string; category?: string }): Promise<any[]> {
+  const searchParams = new URLSearchParams();
+  if (params.keyword) searchParams.append('keyword', params.keyword);
+  if (params.year) searchParams.append('year', params.year);
+  if (params.category) searchParams.append('category', params.category);
+  
+  const response = await api.get(`/api/certifications/${certificationId}/questions/search`, {
+    params: {
+      keyword: params.keyword,
+      year: params.year,
+      category: params.category
+    }
+  });
+  return response.data;
+}
+
+export async function getQuestions(certificationId: string): Promise<any[]> {
+  const response = await api.get(`/api/certifications/${certificationId}/questions`);
+  return response.data;
+}
+
+export async function createQuestion(certificationId: string, data: {
+  questionNumber?: number;
+  question: string;
+  questionImage?: string;
+  questionType: 'normal' | 'truefalse' | 'programming';
+  codeSnippet?: string;
+  options: {
+    text: string;
+    imageUrl?: string;
+    subOptions?: {
+      text: string;
+      imageUrl?: string;
+    }[];
+  }[];
+  correctAnswers: number[];
+  explanation: string;
+  explanationImage?: string;
+  year: string;
+  category: string;
+  mainCategory: string;
+}): Promise<CertificationQuestion> {
+  const response = await api.post(`/api/certifications/${certificationId}/questions`, data);
+  return response.data;
+}
+
+export async function updateQuestion(certificationId: string, questionId: string, data: any): Promise<any> {
+  const response = await api.put(`/api/certifications/${certificationId}/questions/${questionId}`, data);
+  return response.data;
+}
+
+export async function deleteQuestion(certificationId: string, questionId: string): Promise<void> {
+  await api.delete(`/api/certifications/${certificationId}/questions/${questionId}`);
+}
+
+// ユーザー回答の記録
+export async function submitAnswer(certificationId: string, data: {
+  userId: string;
+  questionId: string;
+  correct: boolean;
+  selectedAnswer: number | null;
+}) {
+  const response = await api.post(`/api/certifications/${certificationId}/questions/answers`, data);
+  return response.data;
+}
+
+// ユーザー進捗の取得
+export async function getProgress(certificationId: string, userId: string) {
+  const response = await api.get(`/api/certifications/${certificationId}/questions/progress`, {
+    params: { userId }
+  });
+  return response.data;
+}
+
+// 会社情報関連
+export interface Company {
+  id?: string;
+  company_name: string;
+  parent_industry: string;
+  industry: string;
+  business_tags: string[];
+  original_tags: string[];
+  region: string;
+  prefecture: string;
+  notes?: string;
+  strengths: string[];
+  challenges: string[];
+  source_url?: string;
+  extracted_at: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateCompanyInput {
+  company_name: string;
+  parent_industry: string;
+  industry: string;
+  business_tags: string[];
+  original_tags: string[];
+  region: string;
+  prefecture: string;
+  notes?: string;
+  strengths: string[];
+  challenges: string[];
+  source_url?: string;
+  extracted_at?: string;
+}
+
+// 会社情報を作成
+export async function createCompany(data: CreateCompanyInput): Promise<Company> {
+  const response = await api.post('/api/companies', data);
+  return response.data;
+}
+
+// 全会社情報を取得
+export async function getCompanies(): Promise<Company[]> {
+  const response = await api.get('/api/companies');
+  return response.data;
+}
+
+// 特定の会社情報を取得
+export async function getCompany(id: string): Promise<Company> {
+  const response = await api.get(`/api/companies/${id}`);
+  return response.data;
+}
+
 export async function getCertification(id: string): Promise<Certification> {
   const response = await api.get(`/api/certifications/${id}`);
   return response.data;
@@ -168,8 +296,8 @@ export async function getProgrammingChapters(languageId: string): Promise<Progra
   return response.data;
 }
 
-export async function getProgrammingChapter(chapterId: string): Promise<ProgrammingChapter> {
-  const response = await api.get(`/api/programming/chapters/${chapterId}`);
+export async function getProgrammingChapter(chapterId: string, languageId: string): Promise<ProgrammingChapter> {
+  const response = await api.get(`/api/programming/chapters/${chapterId}?languageId=${languageId}`);
   return response.data;
 }
 
@@ -219,6 +347,30 @@ export async function getEnglishContentById(id: string): Promise<EnglishContent>
   }
 }
 
+export async function getNewsById(id: string): Promise<NewsContent> {
+  try {
+    const isExternal = id.startsWith('newsapi-');
+    const endpoint = isExternal ? `/api/english/news/external/${id}` : `/api/english/news/${id}`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch news');
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Error in getNewsById:', error);
+    throw error;
+  }
+}
+
 export async function createEnglishContent(data: Omit<EnglishContent, 'id' | 'createdAt' | 'updatedAt'>): Promise<EnglishContent> {
   try {
     const response = await api.post('/api/english', data);
@@ -260,13 +412,55 @@ export async function updateEnglishProgress(userId: string, lessonId: string, da
 
 // 大学情報関連
 export async function getUniversities(): Promise<any[]> {
-  const response = await api.get('/api/universities');
+  // Next.js APIルートに直接リクエストを送る（Supabase対応）
+  const baseUrl = typeof window !== 'undefined' 
+    ? window.location.origin 
+    : process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3000';
+  
+  const response = await fetch(`${baseUrl}/api/universities`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch universities');
+  }
+  const data = await response.json();
+  // Next.js APIルートは { universities: [...] } 形式で返すので、universities を取得
+  return data.universities || [];
+}
+
+export async function scrapeUniversities(): Promise<{ 
+  message: string; 
+  added: number; 
+  total: number;
+  sheetWritten?: number;
+  sheetSkipped?: number;
+  sheetTotal?: number;
+}> {
+  const response = await api.post('/api/universities/scrape');
   return response.data;
 }
 
-export async function scrapeUniversities(): Promise<{ message: string; added: number; total: number }> {
-  const response = await api.post('/api/universities/scrape');
-  return response.data;
+export async function importUniversitiesFromSheet(): Promise<{ 
+  message: string; 
+  added: number;
+  skipped: number;
+  total: number;
+}> {
+  const baseUrl = typeof window !== 'undefined'
+    ? window.location.origin
+    : process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3000';
+  
+  const response = await fetch(`${baseUrl}/api/admin/universities/import-from-sheet`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to import universities from sheet');
+  }
+  
+  return await response.json();
 }
 
 export async function updateUniversity(id: string, data: any): Promise<any> {

@@ -1,21 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
-import { ProgrammingLanguage } from '@/lib/cosmos-db';
+import { ProgrammingLanguage } from '@/types/api';
 
 interface CreateLanguageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: Omit<ProgrammingLanguage, 'createdAt' | 'updatedAt'>) => void;
+  editingLanguage?: ProgrammingLanguage | null;
 }
 
-export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateLanguageModalProps) {
+export default function CreateLanguageModal({ isOpen, onClose, onSave, editingLanguage }: CreateLanguageModalProps) {
   const [id, setId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'language' | 'framework' | 'ai-platform'>('language');
+  const [type, setType] = useState<'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network'>('language');
+
+  // 編集モードの場合、初期値を設定
+  useEffect(() => {
+    if (editingLanguage) {
+      setId(editingLanguage.id);
+      setTitle(editingLanguage.title);
+      setDescription(editingLanguage.description || '');
+      setType(editingLanguage.type);
+    } else {
+      setId('');
+      setTitle('');
+      setDescription('');
+      setType('language');
+    }
+  }, [editingLanguage, isOpen]);
 
   const generateId = (title: string) => {
     return title
@@ -27,7 +43,10 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    setId(generateId(newTitle));
+    // 編集モードの場合はIDを変更しない
+    if (!editingLanguage) {
+      setId(generateId(newTitle));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -48,7 +67,7 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-white">
         <DialogHeader>
-          <DialogTitle>新規プログラミング言語追加</DialogTitle>
+          <DialogTitle>{editingLanguage ? 'プログラミング言語編集' : '新規プログラミング言語追加'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -57,13 +76,18 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as 'language' | 'framework' | 'ai-platform')}
+              onChange={(e) => setType(e.target.value as 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network')}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             >
               <option value="language">プログラミング言語</option>
               <option value="framework">フレームワーク</option>
-              <option value="ai-platform">AIアプリ開発プラットフォーム</option>
+              <option value="ai-platform">ワークフロー開発プラットフォーム</option>
+              <option value="data-warehouse">データウェアハウス</option>
+              <option value="cloud">クラウド</option>
+              <option value="network">ネットワーク</option>
+              <option value="saas">SaaS</option>
+              <option value="others">その他</option>
             </select>
           </div>
 
@@ -78,7 +102,11 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave }: CreateL
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
               pattern="[a-zA-Z0-9]+"
+              disabled={!!editingLanguage}
             />
+            {editingLanguage && (
+              <p className="mt-1 text-sm text-gray-500">IDは編集できません</p>
+            )}
           </div>
 
           <div>

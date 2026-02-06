@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEnglishMoviesContainer } from '@/lib/cosmos-db';
-import { processYouTubeContent } from '@/lib/azure-movie-processor';
-import { getYouTubeInfo } from '@/lib/youtube-info';
+import { supabaseAdmin } from '@/lib/supabase';
+import { fetchEnglishMovies } from '@/lib/english-movies.server';
 
 export async function GET() {
   try {
-    const container = await getEnglishMoviesContainer();
-    const { resources } = await container.items
-      .query({
-        query: 'SELECT * FROM c ORDER BY c.createdAt DESC',
-      })
-      .fetchAll();
-
-    return NextResponse.json(resources);
+    // Supabaseから動画一覧を取得
+    const movies = await fetchEnglishMovies();
+    return NextResponse.json(movies);
   } catch (error) {
     console.error('Error getting movies:', error);
     if (error instanceof Error) {
@@ -32,100 +26,62 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const movie = await request.json();
-    const container = await getEnglishMoviesContainer();
 
     // 新規作成時はIDを生成
     if (!movie.id) {
       movie.id = crypto.randomUUID();
     }
 
-    // 作成日時を設定
-    if (!movie.createdAt) {
-      movie.createdAt = new Date().toISOString();
+    // contentオブジェクトを構築
+    const content: Record<string, unknown> = {
+      videoUrl: movie.videoUrl || '',
+      videoStoragePath: movie.videoStoragePath || undefined,
+      subtitleUrl: movie.subtitleUrl || undefined,
+      subtitleStoragePath: movie.subtitleStoragePath || undefined,
+      thumbnailUrl: movie.thumbnailUrl || undefined,
+      thumbnailStoragePath: movie.thumbnailStoragePath || undefined,
+      description: movie.description || '',
+      level: movie.level || 'beginner',
+      tags: movie.tags || [],
+      subtitles: movie.subtitles || [],
+      vocabulary: movie.vocabulary || [],
+      isPublished: movie.isPublished === true || movie.isPublished === 'true',
+      duration: movie.duration || 0,
+      processed: movie.processed || false,
+      error: movie.error || null,
+      lastProcessingTime: movie.lastProcessingTime || new Date().toISOString(),
+      lastProcessingStage: movie.lastProcessingStage || 'pending',
+    };
+
+    // YouTube動画の場合は追加情報を設定
+    if (movie.originalTitle) {
+      content.originalTitle = movie.originalTitle;
+    }
+    if (movie.originalDescription) {
+      content.originalDescription = movie.originalDescription;
     }
 
-    // 処理状態の初期化
-    movie.processed = false;
-    movie.error = null;
-    movie.lastProcessingTime = new Date().toISOString();
-    movie.lastProcessingStage = 'pending';
-
-    // YouTube動画の場合は情報を取得
-    if (movie.videoUrl && (movie.videoUrl.includes('youtube.com') || movie.videoUrl.includes('youtu.be'))) {
-      try {
-        const info = await getYouTubeInfo(movie.videoUrl);
-        movie.originalTitle = info.title;
-        movie.originalDescription = info.description;
-        movie.duration = info.duration;
-        movie.thumbnailUrl = info.thumbnailUrl;
-
-        // GPT-4で処理
-        console.log('Processing with GPT-4...');
-        const generatedContent = await processYouTubeContent(
-          movie.videoUrl,
-          movie.originalTitle,
-          movie.originalDescription,
-          movie.duration
-        );
-
-        // 生成されたコンテンツを追加
-        movie.title = generatedContent.title;
-        movie.description = generatedContent.description;
-        movie.level = generatedContent.level;
-        movie.tags = generatedContent.tags;
-        movie.subtitles = generatedContent.subtitles;
-        movie.vocabulary = generatedContent.vocabulary;
-        movie.processed = true;
-        movie.error = null;
-        movie.lastProcessingTime = new Date().toISOString();
-        movie.lastProcessingStage = 'completed';
-
-        console.log('Content generated successfully:', {
-          title: generatedContent.title,
-          level: generatedContent.level,
-          subtitlesCount: generatedContent.subtitles.length,
-          vocabularyCount: generatedContent.vocabulary.length
-        });
-      } catch (error) {
-        console.error('Error processing YouTube content:', error);
-        if (error instanceof Error) {
-          console.error('Error details:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack,
-            context: {
-              videoUrl: movie.videoUrl
-            }
-          });
-        }
-        movie.error = error instanceof Error ? error.message : 'Failed to process content';
-        movie.lastProcessingStage = 'failed';
-      }
-    }
-
-    // 動画情報を保存
-    try {
-      const { resource } = await container.items.create({
-        ...movie,
+    // Supabaseに保存
+    const { data, error: supabaseError } = await supabaseAdmin!
+      .from('english_movies')
+      .insert({
         id: movie.id,
-        partitionKey: movie.id
-      });
+        title: movie.title || 'Untitled Movie',
+        content,
+        type: movie.type || 'movie',
+        difficulty: movie.level || 'beginner',
+        created_at: movie.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-      return NextResponse.json(resource);
-    } catch (error) {
-      console.error('Error creating movie:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          context: {
-            movieId: movie.id
-          }
-        });
-      }
-      throw error;
+    if (supabaseError) {
+      console.error('Supabase insert error:', supabaseError);
+      throw new Error(`Failed to create movie: ${supabaseError.message}`);
     }
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error in POST handler:', error);
     if (error instanceof Error) {

@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import VideoPlayer from '@/components/ui/VideoPlayer';
-import { NewsContent } from '@/types/english';
+import { NewsContent } from '@/types/api';
+import { getNewsById } from '@/lib/api';
 
 interface NewsWithExtras extends NewsContent {
   publishedAt?: string;
   conversation?: string;
   audioUrl?: string;
+  sourceUrl?: string;
+  sourceName?: string;
 }
 
 export default function NewsDetailPage({ params }: { params: { id: string } }) {
@@ -24,9 +27,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
 
   const fetchNews = async () => {
     try {
-      const response = await fetch(`/api/english/news/${params.id}`);
-      if (!response.ok) throw new Error('Failed to fetch news');
-      const data = await response.json();
+      const data = await getNewsById(params.id);
       setNews(data);
     } catch (error) {
       console.error('Error fetching news:', error);
@@ -75,13 +76,20 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
             ニュース一覧に戻る
           </button>
 
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-              {news.category}
-            </span>
-            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">
-              {news.level}
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                {news.category}
+              </span>
+              <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">
+                {news.level}
+              </span>
+            </div>
+            {news.sourceName && (
+              <div className="text-sm text-gray-500">
+                Source: <a href={news.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600">{news.sourceName}</a>
+              </div>
+            )}
           </div>
 
           <h1 className="text-3xl font-bold mb-2">{news.title}</h1>
@@ -143,7 +151,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
           )}
 
           {/* 会話練習 */}
-          {news.conversation && (
+          {news?.conversation && (
             <div className="p-6 border-t">
               <h2 className="text-xl font-semibold mb-4">会話練習</h2>
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -153,7 +161,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
           )}
 
           {/* 音声 */}
-          {news.audioUrl && (
+          {news?.audioUrl && (
             <div className="p-6 border-t">
               <h2 className="text-xl font-semibold mb-4">音声</h2>
               <audio controls className="w-full">
@@ -167,7 +175,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
           <div className="p-6 border-t bg-gray-50">
             <div className="flex items-center justify-between text-sm text-gray-500">
               <div className="flex items-center gap-2">
-                {news.tags.map((tag) => (
+                {news?.tags?.map((tag) => (
                   <span key={tag} className="text-xs">
                     #{tag}
                   </span>

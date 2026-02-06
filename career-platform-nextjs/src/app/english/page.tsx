@@ -47,7 +47,7 @@ export default function EnglishPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature) => (
             <Link key={feature.id} href={feature.href} className="block">
-              <Card className="h-full p-6 bg-gray-800 hover:bg-gray-700 transition-colors border-gray-700 hover:border-gray-600">
+              <Card className="h-full p-6 bg-gray-800 hover:bg-gray-700 transition-colors border-gray-700 hover:border-gray-600" style={{ backgroundColor: 'rgba(55, 65, 81, 1)' }}>
                 <div className="relative w-full h-48 mb-6 rounded-lg overflow-hidden">
                   <Image
                     src={feature.imageUrl}

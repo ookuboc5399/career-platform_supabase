@@ -25,16 +25,34 @@ export interface University extends BaseEntity {
 }
 
 // 資格学習関連
+export interface SubOption {
+  text: string;
+  imageUrl: string | null;
+}
+
+export interface Option {
+  text: string;
+  imageUrl: string | null;
+  subOptions?: SubOption[];
+}
+
 export interface CertificationQuestion {
   id: string;
+  certificationId: string;
+  questionNumber: number;
   question: string;
-  type?: 'text' | 'image';
-  imageUrl?: string;
-  choices: Choice[];
-  correctAnswer: number;
+  questionImage: string | null;
+  questionType: 'normal' | 'truefalse' | 'programming';
+  codeSnippet?: string;
+  options: Option[];
+  correctAnswers: number[];
   explanation: string;
-  explanationType?: 'text' | 'image';
-  explanationImageUrl?: string;
+  explanationImages: string[];
+  year: string;
+  category: string;
+  mainCategory: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CertificationChapter extends BaseEntity {
@@ -63,7 +81,12 @@ export type MainCategory =
 export interface Certification extends BaseEntity {
   name: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
+  image?: {
+    data: string;
+    contentType: string;
+    filename: string;
+  };
   mainCategory?: MainCategory;
   category: string;
   subCategory?: string;
@@ -101,19 +124,25 @@ export interface CreateCertificationDto {
 
 // プログラミング学習関連
 export interface ProgrammingLanguage extends BaseEntity {
-  name: string;
-  description: string;
-  imageUrl: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  title: string;
+  description?: string;
+  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network';
 }
 
 export interface Exercise {
+  id?: string;
+  type: 'code' | 'multiple-choice';
   title: string;
   description: string;
-  testCases: {
+  explanation?: string; // 解説
+  // コード入力形式の場合
+  testCases?: {
     input: string;
     expectedOutput: string;
   }[];
+  // 4択問題の場合
+  choices?: string[];
+  correctAnswer?: number | number[]; // 0-3のインデックス、または複数のインデックスの配列
 }
 
 export interface ProgrammingChapter extends BaseEntity {
@@ -125,6 +154,26 @@ export interface ProgrammingChapter extends BaseEntity {
   order: number;
   status: 'draft' | 'published';
   exercises: Exercise[];
+}
+
+// 試験対策用の問題（チャプター学習用の問題とは別）
+export interface ProgrammingPracticeExercise extends BaseEntity {
+  languageId: string;
+  chapterId?: string; // オプション: 特定のチャプターに紐づける場合
+  type: 'code' | 'multiple-choice';
+  title?: string;
+  description: string;
+  descriptionJapanese?: string;
+  explanation?: string;
+  testCases?: {
+    input: string;
+    expectedOutput: string;
+  }[];
+  choices?: string[];
+  correctAnswer?: number | number[]; // 単一または複数のインデックスの配列
+  difficulty?: 'easy' | 'medium' | 'hard';
+  order: number;
+  status: 'draft' | 'published';
 }
 
 // 英語学習関連
@@ -234,4 +283,28 @@ export interface RecommendationResponse {
     confidence: number;
     targetedWeakPoint?: string;
   }[];
+}
+
+export interface NewsContent {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  category: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  tags: string[];
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+  originalTitle?: string;
+  originalContent?: string;
+  vocabulary?: {
+    word: string;
+    meaning: string;
+    example: string;
+  }[];
+  sourceUrl?: string;
+  sourceName?: string;
 }

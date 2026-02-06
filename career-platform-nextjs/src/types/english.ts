@@ -17,6 +17,10 @@ export interface Movie {
   title: string;
   description: string;
   videoUrl: string;
+  videoStoragePath?: string;
+  subtitleUrl?: string;
+  subtitleStoragePath?: string;
+  thumbnailStoragePath?: string;
   transcript: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   tags: string[];
@@ -80,15 +84,78 @@ export interface QuestionContent {
   options: string[];
   correctAnswers: number[];
   explanation: string;
+  japanese?: string | string[];  // 日本語文（複数可）
+  english?: string | string[];   // 英語文（複数可）
+  format?: QuestionFormat;  // 問題形式
+  schoolName?: string;  // 学校名（学校問題の場合）
 }
+
+export type WritingCategory = 'book' | 'school' | 'ai';
+export type WritingLevel = 'junior' | 'high' | 'university';
+
+export type VocabularyPartOfSpeech = 'noun' | 'verb' | 'adjective' | 'adverb' | 'preposition' | 'conjunction' | 'interjection';
+export type VocabularyCategory = 'general' | 'business' | 'academic' | 'toeic';
+
+export interface VocabularyQuestion {
+  id: string;
+  word: string;
+  meaning: string;
+  pronunciation: string;
+  partOfSpeech: VocabularyPartOfSpeech;
+  examples: string[];
+  synonyms: string[];
+  antonyms: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  category: VocabularyCategory;
+  createdAt: string;
+}
+
+export interface ReadingQuestion {
+  id: string;
+  title: string;
+  content: string;
+  questions: {
+    id: string;
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    explanation: string;
+  }[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  category: 'business' | 'academic' | 'general';
+  createdAt: string;
+}
+
+export type QuestionType = 'grammar' | 'vocabulary' | 'writing' | 'reading';
+export type QuestionFormat = 'multiple_choice' | 'translation' | 'reading' | 'vocabulary';
 
 export interface Question {
   id: string;
-  type: 'grammar' | 'vocabulary' | 'writing';
-  category?: GrammarCategory;
-  imageUrl?: string;
-  content: QuestionContent;
+  englishId?: string;
+  type: QuestionType;
+  imageUrl: string;
+  content: QuestionContent & {
+    format?: QuestionFormat;
+    word?: string;
+    meaning?: string;
+    pronunciation?: string;
+    partOfSpeech?: VocabularyPartOfSpeech;
+    examples?: string[];
+    synonyms?: string[];
+    antonyms?: string[];
+    title?: string;
+    questions?: {
+      id: string;
+      question: string;
+      options: string[];
+      correctAnswer: number;
+      explanation: string;
+    }[];
+  };
   createdAt: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  level?: WritingLevel;
+  category?: WritingCategory | 'general' | 'business' | 'academic';
 }
 
 export interface NewsContent {
@@ -98,12 +165,16 @@ export interface NewsContent {
   content: string;
   imageUrl?: string;
   videoUrl?: string;
+  audioUrl?: string;
+  audioFileName?: string;
   category: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   tags: string[];
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
+  publishedAt?: string;
+  conversation?: string;
   originalTitle?: string;
   originalContent?: string;
   vocabulary?: {
@@ -111,6 +182,8 @@ export interface NewsContent {
     meaning: string;
     example: string;
   }[];
+  sourceUrl?: string;
+  sourceName?: string;
 }
 
 export interface ConversationTopic {

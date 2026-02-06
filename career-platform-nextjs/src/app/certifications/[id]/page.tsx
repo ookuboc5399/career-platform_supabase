@@ -102,14 +102,13 @@ export default async function CertificationPage({ params }: Props) {
             </div>
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <span className="px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
-                  {certification.mainCategory}
-                </span>
+                {certification.mainCategory && (
+                  <span className="px-2 py-1 rounded text-sm bg-blue-100 text-blue-800">
+                    {certification.mainCategory}
+                  </span>
+                )}
                 <span className="px-2 py-1 rounded text-sm bg-green-100 text-green-800">
                   {certification.category}
-                </span>
-                <span className="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">
-                  {certification.subCategory}
                 </span>
                 <span className={`px-2 py-1 rounded text-sm ${
                   certification.difficulty === 'beginner'

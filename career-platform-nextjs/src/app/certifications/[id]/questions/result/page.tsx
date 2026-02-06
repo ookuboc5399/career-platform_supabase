@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, use } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase-client';
 
 interface Question {
   id: string;
@@ -25,12 +26,12 @@ interface Progress {
   timestamp: string;
 }
 
-export default function QuestionResultPage({ params }: { params: Promise<{ id: string }> }) {
+export default function QuestionResultPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [progress, setProgress] = useState<Progress[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { id: certificationId } = use(params);
+  const { id: certificationId } = params;
 
   useEffect(() => {
     fetchResults();
@@ -39,23 +40,36 @@ export default function QuestionResultPage({ params }: { params: Promise<{ id: s
   const fetchResults = async () => {
     try {
       setIsLoading(true);
-      // 進捗データを取得
-      const progressResponse = await fetch(`/api/certifications/questions/progress?certificationId=${certificationId}`);
-      if (!progressResponse.ok) throw new Error('Failed to fetch progress');
-      const progressData = await progressResponse.json();
+      // ユーザー取得
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      // 問題データを取得
-      const certResponse = await fetch(`/api/certifications/${certificationId}`);
-      if (!certResponse.ok) throw new Error('Failed to fetch certification');
-      const certification = await certResponse.json();
+      // 問題データ（Express APIから取得）
+      const baseUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
+      const questionsRes = await fetch(`${baseUrl}/api/certifications/${certificationId}/questions`);
+      if (!questionsRes.ok) throw new Error('Failed to fetch questions');
+      const questionsData = await questionsRes.json();
+      setQuestions(Array.isArray(questionsData) ? questionsData : []);
 
-      if (!certification.questions) {
-        setQuestions([]);
-        return;
+      // 進捗データ（ユーザーIDがある場合のみ取得）
+      if (userId) {
+        const progressRes = await fetch(`${baseUrl}/api/certifications/${certificationId}/questions/progress?userId=${encodeURIComponent(userId)}`);
+        if (!progressRes.ok) throw new Error('Failed to fetch progress');
+        const p = await progressRes.json();
+        // DBの構造 { questions: [{questionId, correct, selectedAnswer, answeredAt}] }
+        const mapped = Array.isArray(p?.questions)
+          ? p.questions.map((q: any) => ({
+              questionId: q.questionId,
+              selectedAnswer: q.selectedAnswer ?? null,
+              isCorrect: !!q.correct,
+              timestamp: q.answeredAt,
+            }))
+          : [];
+        setProgress(mapped);
+      } else {
+        setProgress([]);
       }
-
-      setQuestions(certification.questions);
-      setProgress(progressData);
     } catch (error) {
       console.error('Error fetching results:', error);
     } finally {

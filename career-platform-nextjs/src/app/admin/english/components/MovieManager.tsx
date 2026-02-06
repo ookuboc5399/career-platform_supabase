@@ -34,12 +34,16 @@ export default function MovieManager() {
     }
   };
 
-  const handleVideoUpload = async (videoUrl: string, duration: string) => {
+  const handleVideoUpload = async (videoUrl: string, duration: string, storagePath?: string) => {
     if (!selectedMovie) return;
+    
+    const durationNumber = parseFloat(duration) || 0;
     
     setSelectedMovie({
       ...selectedMovie,
       videoUrl,
+      videoStoragePath: storagePath, // Supabase Storageのパスを保存
+      duration: durationNumber,
     });
 
     if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
@@ -87,6 +91,41 @@ export default function MovieManager() {
       } finally {
         setIsLoading(false);
       }
+    }
+  };
+
+  const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedMovie) return;
+
+    try {
+      setIsUploading(true);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append('subtitle', file);
+
+      const response = await fetch('/api/upload/subtitle', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload subtitle');
+      }
+
+      const data = await response.json();
+      setSelectedMovie({
+        ...selectedMovie,
+        subtitleUrl: data.url,
+        subtitleStoragePath: data.storagePath,
+      });
+    } catch (error) {
+      console.error('Error uploading subtitle:', error);
+      setError(error instanceof Error ? error.message : 'Failed to upload subtitle');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -320,23 +359,34 @@ export default function MovieManager() {
             <div>
               <label className="block text-sm font-medium mb-1">動画</label>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">動画ファイルをアップロード</label>
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    方法1: Supabase Storageに動画ファイルをアップロード
+                  </label>
                   <VideoUploader onUploadComplete={handleVideoUpload} type="english" disabled={isLoading} />
+                  {selectedMovie.videoStoragePath && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      Storage Path: {selectedMovie.videoStoragePath}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">または YouTube URL を入力</label>
+                
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    方法2: YouTube URL を入力
+                  </label>
                   <div className="relative">
                     <Input
-                      value={selectedMovie.videoUrl}
+                      value={selectedMovie.videoUrl || ''}
                       onChange={async (e) => {
                         const url = e.target.value;
                         setSelectedMovie({
                           ...selectedMovie,
                           videoUrl: url,
+                          videoStoragePath: undefined, // YouTubeの場合はStorageパスをクリア
                         });
 
-                        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                        if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
                           try {
                             setIsLoading(true);
                             setError(null);
@@ -362,6 +412,7 @@ export default function MovieManager() {
                               level: info.level,
                               tags: info.tags,
                               videoUrl: url,
+                              videoStoragePath: undefined, // YouTubeの場合はStorageパスなし
                               originalTitle: info.originalTitle,
                               originalDescription: info.originalDescription,
                               duration: info.duration,
@@ -381,20 +432,86 @@ export default function MovieManager() {
                           } finally {
                             setIsLoading(false);
                           }
+                        } else if (!url) {
+                          // URLが空の場合はStorageパスもクリア
+                          setSelectedMovie({
+                            ...selectedMovie,
+                            videoUrl: '',
+                            videoStoragePath: undefined,
+                          });
                         }
                       }}
                       placeholder="https://www.youtube.com/watch?v=..."
                       disabled={isLoading}
                     />
                     {isLoading && (
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                      <div className="ml-2 text-sm text-blue-500">
-                        情報取得中...
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                        <div className="ml-2 text-sm text-blue-500">
+                          情報取得中...
+                        </div>
                       </div>
-                    </div>
                     )}
                   </div>
+                  {selectedMovie.videoUrl && (selectedMovie.videoUrl.includes('youtube.com') || selectedMovie.videoUrl.includes('youtu.be')) && (
+                    <div className="mt-2 text-xs text-green-600">
+                      ✓ YouTube動画として認識されました
+                    </div>
+                  )}
+                </div>
+                
+                {selectedMovie.videoUrl && (
+                  <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                    <div className="font-medium text-blue-900">現在の動画URL:</div>
+                    <div className="text-blue-700 break-all">{selectedMovie.videoUrl}</div>
+                    {selectedMovie.videoStoragePath && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Storage Path: {selectedMovie.videoStoragePath}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">字幕ファイル（VTT）</label>
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="space-y-2">
+                  <div>
+                    <input
+                      type="file"
+                      accept=".vtt,.srt,text/vtt,text/plain"
+                      onChange={handleSubtitleUpload}
+                      className="hidden"
+                      id="subtitle-upload"
+                      disabled={isLoading || isUploading}
+                    />
+                    <label htmlFor="subtitle-upload">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={isLoading || isUploading}
+                        asChild
+                      >
+                        <span>
+                          {isUploading ? 'アップロード中...' : '字幕ファイルを選択（.vtt）'}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+                  {selectedMovie.subtitleStoragePath && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      Storage Path: {selectedMovie.subtitleStoragePath}
+                    </div>
+                  )}
+                  {selectedMovie.subtitleUrl && (
+                    <div className="mt-2 p-2 bg-green-50 rounded text-sm">
+                      <div className="font-medium text-green-900">字幕URL:</div>
+                      <div className="text-green-700 break-all text-xs">{selectedMovie.subtitleUrl}</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

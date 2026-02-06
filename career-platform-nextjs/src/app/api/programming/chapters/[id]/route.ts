@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { updateProgrammingChapter, deleteProgrammingChapter, getProgrammingChapter } from '@/lib/cosmos-db';
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -16,15 +16,37 @@ export async function GET(
       );
     }
 
-    const chapter = await getProgrammingChapter(params.id, languageId);
-    if (!chapter) {
+    const { data: chapter, error } = await supabaseAdmin
+      .from('programming_chapters')
+      .select('*')
+      .eq('id', params.id)
+      .eq('language_id', languageId)
+      .single();
+
+    if (error || !chapter) {
       return NextResponse.json(
         { error: 'Chapter not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(chapter);
+    // スネークケースからキャメルケースに変換
+    const formattedChapter = {
+      id: chapter.id,
+      languageId: chapter.language_id,
+      title: chapter.title,
+      description: chapter.description,
+      videoUrl: chapter.video_url,
+      thumbnailUrl: chapter.thumbnail_url,
+      duration: chapter.duration,
+      order: chapter.order,
+      status: chapter.status,
+      exercises: chapter.exercises || [],
+      createdAt: chapter.created_at,
+      updatedAt: chapter.updated_at,
+    };
+
+    return NextResponse.json(formattedChapter);
   } catch (error) {
     console.error('Error fetching chapter:', error);
     return NextResponse.json(
@@ -34,9 +56,8 @@ export async function GET(
   }
 }
 
-
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -51,35 +72,52 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const {
-      title,
-      description,
-      videoUrl,
-      thumbnailUrl,
-      duration,
-      status,
-      exercises,
-    } = body;
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    };
 
-    if (!title || !description || !videoUrl) {
+    // キャメルケースをスネークケースに変換
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.videoUrl !== undefined) updateData.video_url = body.videoUrl;
+    if (body.thumbnailUrl !== undefined) updateData.thumbnail_url = body.thumbnailUrl;
+    if (body.duration !== undefined) updateData.duration = body.duration;
+    if (body.order !== undefined) updateData.order = body.order;
+    if (body.status !== undefined) updateData.status = body.status;
+    if (body.exercises !== undefined) updateData.exercises = body.exercises;
+
+    const { data: result, error } = await supabaseAdmin
+      .from('programming_chapters')
+      .update(updateData)
+      .eq('id', params.id)
+      .eq('language_id', languageId)
+      .select()
+      .single();
+
+    if (error || !result) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+        { error: 'Chapter not found' },
+        { status: 404 }
       );
     }
 
-    const chapter = await updateProgrammingChapter(params.id, languageId, {
-      title,
-      description,
-      videoUrl,
-      thumbnailUrl: thumbnailUrl || '',
-      duration: duration || '',
-      status: status || 'draft',
-      exercises: exercises || [],
-      updatedAt: new Date().toISOString(),
-    });
+    // スネークケースからキャメルケースに変換
+    const formattedChapter = {
+      id: result.id,
+      languageId: result.language_id,
+      title: result.title,
+      description: result.description,
+      videoUrl: result.video_url,
+      thumbnailUrl: result.thumbnail_url,
+      duration: result.duration,
+      order: result.order,
+      status: result.status,
+      exercises: result.exercises || [],
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
 
-    return NextResponse.json(chapter);
+    return NextResponse.json(formattedChapter);
   } catch (error) {
     console.error('Error updating chapter:', error);
     return NextResponse.json(
@@ -90,7 +128,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -104,7 +142,16 @@ export async function DELETE(
       );
     }
 
-    await deleteProgrammingChapter(params.id, languageId);
+    const { error } = await supabaseAdmin
+      .from('programming_chapters')
+      .delete()
+      .eq('id', params.id)
+      .eq('language_id', languageId);
+
+    if (error) {
+      throw error;
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting chapter:', error);

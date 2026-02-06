@@ -210,7 +210,7 @@ export async function loadJsonData(
  * @param blobName BLOBの名前
  * @returns SASトークン
  */
-function generateSasToken(containerName: string, blobName: string): string {
+export function generateSasToken(containerName: string, blobName: string): string {
   const startsOn = new Date();
   const expiresOn = new Date(startsOn);
   expiresOn.setMinutes(startsOn.getMinutes() + 60); // 1時間有効

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { RichTextEditor } from './RichTextEditor';
@@ -42,6 +42,7 @@ interface EditQuestionModalProps {
 }
 
 export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQuestionModalProps) {
+  const [questionNumber, setQuestionNumber] = useState<number | ''>(question.questionNumber || '');
   const [questionText, setQuestionText] = useState(question.question);
   const [questionImage, setQuestionImage] = useState<string | null>(question.questionImage);
   const [options, setOptions] = useState<Option[]>(
@@ -66,12 +67,39 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   const [year, setYear] = useState(question.year || '');
   const [category, setCategory] = useState(question.category || '');
 
-  const years = [
-    'H21年春', 'H21年秋', 'H22年春', 'H22年秋', 'H23年春', 'H23年秋', 'H24年春', 'H24年秋',
-    'H25年春', 'H25年秋', 'H26年春', 'H26年秋', 'H27年春', 'H27年秋', 'H28年春', 'H28年秋',
-    'H29年春', 'H29年秋', 'H30年春', 'H30年秋', 'H31年春', 'R1年秋', 'R2年春', 'R2年秋',
-    'R3年春', 'R3年秋', 'R4年春', 'R4年秋', 'R5年春', 'R5年秋'
-  ];
+  const getAvailableYears = useCallback((): string[] => {
+    const defaultYears = [
+      'H21年春', 'H21年秋', 'H22年春', 'H22年秋',
+      'H23年春', 'H23年秋', 'H24年春', 'H24年秋',
+      'H25年春', 'H25年秋', 'H26年春', 'H26年秋',
+      'H27年春', 'H27年秋', 'H28年春', 'H28年秋',
+      'H29年春', 'H29年秋', 'H30年春', 'H30年秋',
+      'H31年春', 'R1年秋', 'R2年春', 'R2年秋',
+      'R3年春', 'R3年秋', 'R4年春', 'R4年秋',
+      'R5年春', 'R5年秋', 'R5年予想', 'R6年', 'R6年予想'
+    ];
+
+    switch (question.certificationId) {
+      case '7': // ITパスポート
+      case '9': // 基本情報
+      case '10': // 情報セキュリティマネジメント
+      case '11': // 応用情報
+        return defaultYears;
+      case 'e29446b8-60d1-4336-a057-0d0b2269895c': // AWS
+        return ['2024年', '2023年', '2022年', '2021年', '2020年'];
+      case '12': // 宅建士
+        return [
+          'H21年', 'H22年', 'H23年', 'H24年', 'H25年',
+          'H26年', 'H27年', 'H28年', 'H29年', 'H30年',
+          'H31年', 'R1年', 'R2年10月', 'R2年12月', 'R3年10月','R3年12月',  'R4年',
+          'R5年', 'R5年予想', 'R6年', 'R6年予想'
+        ];
+      case '14': // Python
+        return ['2024年', '2023年', '2022年', '2021年', '2020年'];
+      default:
+        return defaultYears;
+    }
+  }, [question.certificationId]);
 
   const getAvailableCategories = (): CategoryMap => {
     if (question.certificationId === '7') { // ITパスポート
@@ -92,16 +120,33 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
         '分析': ['Kinesis', 'Glue', 'Athena'],
         '機械学習': ['Comprehend', 'Transcribe', 'Textract']
       };
-    } else if (question.certificationId === '9') { // 応用情報
+    } else if (question.certificationId === '9') { // 基本情報
       return {
-        'テクノロジ': ['基礎理論', 'コンピュータシステム', 'データベース'],
-        'マネジメント': ['プロジェクトマネジメント', 'サービスマネジメント'],
-        'ストラテジ': ['システム戦略', 'システム企画', '経営戦略']
+        '科目A': ['基礎理論'],
+        '科目B': ['基礎理論']
       };
     } else if (question.certificationId === '10') { // 情報セキュリティマネジメント
       return {
         '科目A': ['基礎理論'],
         '科目B': ['基礎理論']
+      };
+    }else if (question.certificationId === '11') { // 応用情報
+        return {
+          'テクノロジ': ['基礎理論', 'コンピュータシステム', 'データベース'],
+          'マネジメント': ['プロジェクトマネジメント', 'サービスマネジメント'],
+          'ストラテジ': ['システム戦略', 'システム企画', '経営戦略']
+        };
+      }else if (question.certificationId === '12') { // 宅建士
+        return {
+          '過去問': ['基礎'],
+              '宅建業法': ['免許', '宅地建物取引士', '営業保証金', '保証協会'],
+              '権利関係': ['制限行為能力者', '意思表示', '代理'],
+              '法令上の制限': [' 都市計画法', '建築基準法'],
+              '税': ['不動産に関する税金', '不動産鑑定評価基準'],
+        };
+    } else if (question.certificationId === '14') { // Python3
+      return {
+        '基礎': ['基礎','リスト', '関数', 'モジュール','ライブラリ'],
       };
     } else {
       return {
@@ -123,6 +168,7 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   );
 
   useEffect(() => {
+    setQuestionNumber(question.questionNumber || '');
     setQuestionText(question.question);
     setQuestionImage(question.questionImage);
     setOptions(
@@ -149,6 +195,7 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
 
     const data = {
       ...question,
+      questionNumber: typeof questionNumber === 'number' ? questionNumber : undefined,
       question: questionText,
       questionImage,
       options: options.filter(opt => opt.text.trim() !== ''),
@@ -227,6 +274,20 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
           <DialogTitle>問題の編集</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">問題番号（任意）</label>
+            <input
+              type="number"
+              min={1}
+              value={questionNumber}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuestionNumber(val === '' ? '' : Number(val));
+              }}
+              className="w-full p-2 border rounded"
+              placeholder="例: 15（問15として保存）"
+            />
+          </div>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -239,7 +300,7 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                 required
               >
                 <option value="">選択してください</option>
-                {years.map((y) => (
+                {getAvailableYears().map((y: string) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>

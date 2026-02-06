@@ -4,23 +4,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CreateChapterModal } from '@/components/ui/CreateChapterModal';
-import { EditChapterModal } from '@/components/ui/EditChapterModal';
+import { EditCertificationChapterModal } from '@/components/ui/EditCertificationChapterModal';
 import { CertificationChapter, CertificationQuestion } from '@/types/api';
 import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
 
-type Chapter = Omit<CertificationChapter, 'createdAt' | 'updatedAt' | 'thumbnailUrl' | 'status' | 'description'> & {
-  certificationId: string;
-  content: string;
-  webText: string;
-  questions: CertificationQuestion[];
-};
 
 export default function ChaptersPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chapters, setChapters] = useState<CertificationChapter[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<CertificationChapter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [googleDriveFolderId, setGoogleDriveFolderId] = useState('');
@@ -57,29 +51,8 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const convertToChapterQuestion = (question: ChapterContent['questions'][0]): CertificationQuestion => {
-    return {
-      id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      question: question.question,
-      type: 'text',
-      choices: question.options.map((text, index) => ({
-        id: `c-${index}`,
-        text
-      })),
-      correctAnswer: question.correctAnswers[0],
-      explanation: question.explanation
-    };
-  };
 
-  const handleCreateChapter = async (data: { 
-    title: string; 
-    content: string; 
-    order: number; 
-    videoUrl: string;
-    duration: string;
-    webText: string; 
-    questions: CertificationQuestion[] 
-  }) => {
+  const handleCreateChapter = async (data: Omit<CertificationChapter, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) => {
     try {
       console.log('Creating chapter with data:', data);
 
@@ -88,15 +61,7 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          certificationId,
-          status: 'draft',
-          thumbnailUrl: '',
-          duration: data.duration || '',
-          description: data.content,
-          questions: data.questions
-        }),
+        body: JSON.stringify(data),
       });
 
       const responseData = await response.json();
@@ -115,21 +80,14 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleEditChapter = async (data: Chapter) => {
+  const handleEditChapter = async (data: Omit<CertificationChapter, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) => {
     try {
-      const response = await fetch(`/api/certifications/${certificationId}/chapters/${data.id}`, {
+      const response = await fetch(`/api/certifications/${certificationId}/chapters/${selectedChapter?.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          certificationId,
-          status: 'draft',
-          thumbnailUrl: '',
-          duration: '',
-          description: data.content,
-        }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -189,13 +147,18 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
     try {
       for (const [index, chapter] of generatedChapters.entries()) {
         await handleCreateChapter({
+          certificationId,
           title: chapter.title,
-          content: chapter.content,
-          order: chapters.length + index + 1,
+          description: chapter.content,
           videoUrl: '',
+          thumbnailUrl: '',
           duration: '',
-          webText: chapter.webText,
-          questions: chapter.questions.map(convertToChapterQuestion)
+          order: chapters.length + index + 1,
+          status: 'draft',
+          content: chapter.webText,
+          questions: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
       }
       setGeneratedChapters([]);
@@ -333,7 +296,7 @@ export default function ChaptersPage({ params }: { params: { id: string } }) {
       />
 
       {selectedChapter && (
-        <EditChapterModal
+        <EditCertificationChapterModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);

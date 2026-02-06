@@ -9,7 +9,7 @@ const client = new CosmosClient({
   key: process.env.COSMOS_DB_KEY,
 });
 
-let database: any;
+export let database: any;
 export let universitiesContainer: Container;
 export let programmingChaptersContainer: Container;
 export let programmingProgressContainer: Container;
@@ -116,8 +116,8 @@ export interface ProgrammingChapter {
   languageId: string;
   title: string;
   description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
   duration: string;
   order: number;
   exercises: {
@@ -191,9 +191,9 @@ export interface CertificationChapter {
   certificationId: string;
   title: string;
   description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  duration: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: string;
   order: number;
   status: 'draft' | 'published';
   content: string;

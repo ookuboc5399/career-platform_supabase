@@ -65,10 +65,34 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        'float-up-1': {
+          '0%': { transform: 'translateY(0)', opacity: '0' },
+          '50%': { opacity: '1' },
+          '100%': { transform: 'translateY(-100px)', opacity: '0' }
+        },
+        'float-up-2': {
+          '0%': { transform: 'translateY(0)', opacity: '0', delay: '0.2s' },
+          '50%': { opacity: '1' },
+          '100%': { transform: 'translateY(-100px)', opacity: '0' }
+        },
+        'float-up-3': {
+          '0%': { transform: 'translateY(0)', opacity: '0', delay: '0.4s' },
+          '50%': { opacity: '1' },
+          '100%': { transform: 'translateY(-100px)', opacity: '0' }
+        },
+        'shake': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '25%': { transform: 'translateX(-5px)' },
+          '75%': { transform: 'translateX(5px)' }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "float-up-1": "float-up-1 2s ease-out infinite",
+        "float-up-2": "float-up-2 2s ease-out infinite 0.2s",
+        "float-up-3": "float-up-3 2s ease-out infinite 0.4s",
+        "shake": "shake 0.5s ease-in-out"
       },
     },
   },

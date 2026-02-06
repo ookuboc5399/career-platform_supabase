@@ -9,7 +9,7 @@ interface Course {
   level: string;
   chapters: number;
   exercises: number;
-  type: 'language' | 'framework' | 'ai-platform';
+  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network';
 }
 
 const courses: Course[] = [
@@ -27,6 +27,36 @@ const courses: Course[] = [
     chapters: 5,
     exercises: 10,
     type: 'ai-platform',
+  },
+  {
+    id: 'n8n',
+    title: 'n8n入門',
+    description: 'オープンソースのワークフロー自動化ツールn8nの使い方を学びます。',
+    icon: '⚙️',
+    features: [
+      'ワークフローの設計と自動化',
+      '多様なサービスとの連携',
+      'カスタムノードの作成',
+    ],
+    level: '初級',
+    chapters: 6,
+    exercises: 12,
+    type: 'ai-platform',
+  },
+  {
+    id: 'php',
+    title: 'PHP入門',
+    description: 'Webアプリケーション開発で広く使用されているPHPを基礎から学びます。',
+    icon: '🐘',
+    features: [
+      'PHPの基本構文と機能',
+      'データベース連携（MySQL）',
+      'フレームワーク入門（Laravel）',
+    ],
+    level: '初級',
+    chapters: 8,
+    exercises: 20,
+    type: 'language',
   },
   {
     id: 'python',
@@ -87,6 +117,102 @@ const courses: Course[] = [
     chapters: 6,
     exercises: 15,
     type: 'framework',
+  },
+  {
+    id: 'django',
+    title: 'Django入門',
+    description: 'Pythonで高速に安全なWebアプリケーションを開発するためのフレームワーク、Djangoを学びます。',
+    icon: '🐍',
+    features: ['MTVアーキテクチャ', 'ORMの活用', '認証機能の実装'],
+    level: '中級',
+    chapters: 8,
+    exercises: 18,
+    type: 'framework',
+  },
+  {
+    id: 'nextjs',
+    title: 'Next.js入門',
+    description: 'Reactをベースにしたサーバーサイドレンダリングや静的サイト生成が可能なフレームワーク、Next.jsを学びます。',
+    icon: '🚀',
+    features: ['サーバーサイドレンダリング (SSR)', '静的サイト生成 (SSG)', 'APIルートの作成'],
+    level: '中級',
+    chapters: 7,
+    exercises: 16,
+    type: 'framework',
+  },
+  {
+    id: 'express',
+    title: 'Express入門',
+    description: 'Node.jsのための高速で最小限のWebアプリケーションフレームワーク、Expressを学びます。',
+    icon: '⚡️',
+    features: ['ルーティング', 'ミドルウェアの作成', 'REST APIの構築'],
+    level: '中級',
+    chapters: 6,
+    exercises: 14,
+    type: 'framework',
+  },
+  {
+    id: 'rails',
+    title: 'Ruby on Rails入門',
+    description: '「設定より規約」の原則に基づいた効率的なWebアプリケーション開発フレームワーク、Ruby on Railsを学びます。',
+    icon: '💎',
+    features: ['MVCアーキテクチャ', 'Active RecordによるDB操作', 'Scaffoldingによる高速開発'],
+    level: '中級',
+    chapters: 8,
+    exercises: 20,
+    type: 'framework',
+  },
+  {
+    id: 'snowflake',
+    title: 'Snowflake入門',
+    description: 'クラウドベースのデータウェアハウスプラットフォーム、Snowflakeの基礎から学びます。',
+    icon: '❄️',
+    features: ['データウェアハウジングの基本', 'SQLによるデータ操作', 'データの共有と管理'],
+    level: '初級',
+    chapters: 7,
+    exercises: 15,
+    type: 'data-warehouse',
+  },
+  {
+    id: 'semantic-layer',
+    title: 'セマンティックレイヤー入門',
+    description: 'ビジネスインテリジェンスとデータ分析のためのセマンティックレイヤーの概念と構築方法を学びます。',
+    icon: '📊',
+    features: ['セマンティックレイヤーの役割', 'dbt Semantic Layerの活用', 'Looker Studioとの連携'],
+    level: '中級',
+    chapters: 5,
+    exercises: 10,
+    type: 'others',
+  },
+  {
+    id: 'github',
+    title: 'GitHub入門',
+    description: '世界最大のコードホスティングサービス、GitHubの使い方を基礎から実践的に学びます。',
+    icon: '🐙',
+    features: [
+      'リポジトリの作成と管理',
+      'ブランチとマージの基本',
+      'プルリクエストとコードレビュー',
+    ],
+    level: '初級',
+    chapters: 6,
+    exercises: 15,
+    type: 'others',
+  },
+  {
+    id: 'jira',
+    title: 'Jira入門',
+    description: 'プロジェクト管理と課題追跡のための強力なツール、Jiraの使い方を基礎から実践的に学びます。',
+    icon: '🎯',
+    features: [
+      'プロジェクトとボードの作成',
+      '課題（Issue）の管理とワークフロー',
+      'アジャイル開発の実践',
+    ],
+    level: '初級',
+    chapters: 6,
+    exercises: 15,
+    type: 'saas',
   },
 ];
 
@@ -172,6 +298,35 @@ export default function ProgrammingPage() {
       </div>
 
       <div className="space-y-12">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg shadow-sm">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">ランダム問題演習</h2>
+              <p className="text-gray-600">全てのジャンルから問題をランダムに解いて実力を試そう！</p>
+            </div>
+            <Link
+              href="/programming/practice"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              問題を解く
+              <svg
+                className="w-5 h-5 ml-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                />
+              </svg>
+            </Link>
+          </div>
+        </div>
+
         <div>
           <h2 className="text-2xl font-bold mb-6">プログラミング言語</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -195,10 +350,65 @@ export default function ProgrammingPage() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-bold mb-6">AIアプリ開発プラットフォーム</h2>
+          <h2 className="text-2xl font-bold mb-6">ワークフロー開発プラットフォーム</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {courses
               .filter(course => course.type === 'ai-platform')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">データウェアハウス</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'data-warehouse')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">クラウド</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'cloud')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">ネットワーク</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'network')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">SaaS</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'saas')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">その他</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'others')
               .map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}

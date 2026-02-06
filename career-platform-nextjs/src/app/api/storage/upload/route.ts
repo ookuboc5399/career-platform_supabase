@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BlobServiceClient } from '@azure/storage-blob';
+import { supabaseAdmin } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
-if (!process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING) {
-  throw new Error('Azure Storage connection string is not configured');
+// バケット名のマッピング
+const BUCKET_MAP: { [key: string]: string } = {
+  'university-image': 'university-images',
+  'programming-video': 'programming-videos',
+  'programming-thumbnail': 'programming-thumbnails',
+  'certification-image': 'certification-images',
+  'certification-video': 'certification-videos',
+  'certification-thumbnail': 'certification-thumbnails',
+};
+
+function getSafeFileName(filename: string): string {
+  const extension = filename.split('.').pop() || '';
+  return `${uuidv4()}.${extension}`;
 }
-
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING
-);
-
-const universityImagesContainer = blobServiceClient.getContainerClient('university-images');
-const programmingVideosContainer = blobServiceClient.getContainerClient('programming-videos');
-const programmingThumbnailsContainer = blobServiceClient.getContainerClient('programming-thumbnails');
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,33 +30,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = await file.arrayBuffer();
-    const blobName = `${Date.now()}-${file.name}`;
-
-    let containerClient;
-    switch (type) {
-      case 'university-image':
-        containerClient = universityImagesContainer;
-        break;
-      case 'programming-video':
-        containerClient = programmingVideosContainer;
-        break;
-      case 'programming-thumbnail':
-        containerClient = programmingThumbnailsContainer;
-        break;
-      default:
+    const bucketName = BUCKET_MAP[type];
+    if (!bucketName) {
         return NextResponse.json(
           { error: 'Invalid file type' },
           { status: 400 }
         );
     }
 
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-    await blockBlobClient.uploadData(buffer, {
-      blobHTTPHeaders: { blobContentType: file.type }
+    const buffer = await file.arrayBuffer();
+    const safeFileName = getSafeFileName(file.name);
+
+    // Supabase Storageにアップロード
+    const { data, error } = await supabaseAdmin!
+      .storage
+      .from(bucketName)
+      .upload(safeFileName, buffer, {
+        contentType: file.type,
+        upsert: false,
     });
 
-    return NextResponse.json({ url: blockBlobClient.url });
+    if (error) {
+      console.error('Supabase upload error:', error);
+      return NextResponse.json(
+        { error: 'Upload failed: ' + error.message },
+        { status: 500 }
+      );
+    }
+
+    // 公開URLを取得
+    const { data: urlData } = supabaseAdmin!
+      .storage
+      .from(bucketName)
+      .getPublicUrl(safeFileName);
+
+    return NextResponse.json({ url: urlData.publicUrl });
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json(

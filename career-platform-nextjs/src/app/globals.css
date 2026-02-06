@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 動画内字幕のスタイル（ブラウザの標準字幕を非表示にして、カスタムオーバーレイを使用） */
+.video-player-container video::cue {
+  display: none; /* ブラウザの標準字幕を非表示（カスタムオーバーレイを使用するため） */
+}
+
+/* カスタムオーバーレイの字幕スタイルはコンポーネント内で定義 */
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 255, 255, 255;

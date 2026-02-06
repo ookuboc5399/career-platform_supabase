@@ -1,40 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Certification } from '@/types/api';
-import { uploadFile, CONTAINERS } from '@/lib/storage';
-import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || ''
-});
-const database = client.database('career-platform');
-const container = database.container('certifications');
-
-// 資格カテゴリー定義
-const categories = {
-  '企業と法務': ['企業活動', '法務'],
-  '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ'],
-  'システム戦略': ['システム戦略', 'システム企画'],
-  '開発技術': ['システム開発技術', 'ソフトウェア開発管理技術'],
-  'プロジェクトマネジメント': ['プロジェクトマネジメント'],
-  'サービスマネジメント': ['サービスマネジメント', 'システム監査'],
-  '基礎理論': ['基礎理論', 'アルゴリズムとプログラミング'],
-  'コンピュータシステム': ['コンピュータ構成要素', 'システム構成要素', 'ソフトウェア', 'ハードウェア']
-};
 
 export async function GET() {
   try {
-    const { resources: certifications } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'certification'"
-      })
-      .fetchAll();
-
-    return NextResponse.json(certifications);
+    console.log('Fetching certifications from Supabase...');
+    
+    // Express APIを呼び出す（Supabase対応済み）
+    const expressApiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
+    
+    // タイムアウトを設定（30秒）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    try {
+      const response = await fetch(`${expressApiUrl}/api/certifications`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch certifications from Express API:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch certifications: ${response.status} ${response.statusText}`);
+      }
+      
+      const certifications = await response.json();
+      console.log('Certifications fetched successfully:', Array.isArray(certifications) ? certifications.length : 'not an array');
+      
+      // レスポンスが配列でない場合のエラーハンドリング
+      if (!Array.isArray(certifications)) {
+        console.error('Invalid response format:', certifications);
+        return NextResponse.json(
+          { 
+            error: 'Invalid response format',
+            details: 'Expected array but got ' + typeof certifications
+          },
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json(certifications);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('Request timeout while fetching certifications');
+        throw new Error('Request timeout: Express API did not respond within 30 seconds');
+      }
+      throw fetchError;
+    }
   } catch (error) {
     console.error('Error fetching certifications:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch certifications' },
+      { 
+        error: 'Failed to fetch certifications',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -42,55 +66,43 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Creating certification via Express API...');
+    
+    // FormDataをそのままExpress APIに転送
     const formData = await request.formData();
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-    const category = formData.get('category') as string;
-    const difficulty = formData.get('difficulty') as 'beginner' | 'intermediate' | 'advanced';
-    const estimatedStudyTime = formData.get('estimatedStudyTime') as string;
-    const imageFile = formData.get('image') as File | null;
-
-    // バリデーション
-    if (!name || !description || !category || !difficulty || !estimatedStudyTime) {
+    
+    // Express APIを呼び出す（Supabase対応済み）
+    const expressApiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
+    
+    const response = await fetch(`${expressApiUrl}/api/certifications`, {
+      method: 'POST',
+      body: formData,
+      // Content-TypeヘッダーはFormDataに設定するとboundaryが自動で設定されるため、明示的に設定しない
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to create certification via Express API:', response.status, response.statusText, errorText);
       return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+        { 
+          error: 'Failed to create certification',
+          details: errorText || response.statusText
+        },
+        { status: response.status }
       );
     }
-
-    // デフォルトのアイコン画像を使用
-    const imageUrl = `/images/${category}.svg`;
-
-    // CosmosDBに保存
-    // 既存の資格を取得して、次のIDを生成
-    const { resources: existingCertifications } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.type = 'certification'"
-      })
-      .fetchAll();
-
-    const nextId = (existingCertifications.length + 1).toString();
-
-    const newCertification: Certification & { type: string } = {
-      id: nextId,
-      type: 'certification', // ドキュメントタイプを指定
-      name,
-      description,
-      imageUrl,
-      category,
-      difficulty,
-      estimatedStudyTime,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      chapters: []
-    };
-
-    const { resource: createdCertification } = await container.items.create(newCertification);
-    return NextResponse.json(createdCertification);
+    
+    const createdCertification = await response.json();
+    console.log('Certification created successfully:', createdCertification.id);
+    
+    return NextResponse.json(createdCertification, { status: 201 });
   } catch (error) {
     console.error('Error creating certification:', error);
     return NextResponse.json(
-      { error: 'Failed to create certification' },
+      { 
+        error: 'Failed to create certification',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

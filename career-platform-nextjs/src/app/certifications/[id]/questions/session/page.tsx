@@ -5,9 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
+interface SubOption {
+  text: string;
+  imageUrl: string | null;
+}
+
 interface Option {
   text: string;
   imageUrl: string | null;
+  subOptions?: SubOption[];
 }
 
 interface Question {
@@ -16,6 +22,8 @@ interface Question {
   questionNumber: number;
   question: string;
   questionImage: string | null;
+  questionType: 'normal' | 'truefalse' | 'programming';
+  codeSnippet?: string;
   options: Option[];
   correctAnswers: number[];
   explanation: string;
@@ -182,6 +190,13 @@ export default function QuestionSessionPage({ params }: { params: { id: string }
             {currentQuestion.category}
           </div>
           <p className="text-lg font-medium mb-6">{currentQuestion.question}</p>
+          {currentQuestion.questionType === 'programming' && currentQuestion.codeSnippet && (
+            <div className="mb-6">
+              <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto font-mono text-sm">
+                {currentQuestion.codeSnippet}
+              </pre>
+            </div>
+          )}
           {currentQuestion.questionImage && (
             <div className="mb-6">
               <Image
@@ -227,6 +242,32 @@ export default function QuestionSessionPage({ params }: { params: { id: string }
                           height={200}
                           className="rounded-md"
                         />
+                      </div>
+                    )}
+                    {/* サブ選択肢 */}
+                    {option.subOptions && option.subOptions.length > 0 && (
+                      <div className="mt-2 ml-4 space-y-2">
+                        {option.subOptions.map((subOption, subIndex) => (
+                          <div key={subIndex} className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                              {String.fromCharCode(97 + subIndex)}.
+                            </span>
+                            <span className="flex-1">
+                              <span>{subOption.text}</span>
+                              {subOption.imageUrl && (
+                                <div className="mt-2">
+                                  <Image
+                                    src={subOption.imageUrl}
+                                    alt={`サブ選択肢${String.fromCharCode(97 + subIndex)}の画像`}
+                                    width={150}
+                                    height={150}
+                                    className="rounded-md"
+                                  />
+                                </div>
+                              )}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </span>

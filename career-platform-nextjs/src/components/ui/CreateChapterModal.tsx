@@ -6,20 +6,12 @@ import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
-import { CertificationQuestion } from '@/types/api';
+import { CertificationChapter } from '@/types/api';
 
 interface CreateChapterModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { 
-    title: string; 
-    content: string; 
-    order: number; 
-    videoUrl: string; 
-    duration: string;
-    webText: string; 
-    questions: CertificationQuestion[] 
-  }) => void;
+  onSave: (data: Omit<CertificationChapter, 'id' | '_rid' | '_self' | '_etag' | '_attachments' | '_ts'>) => void;
   currentMaxOrder: number;
 }
 
@@ -81,29 +73,21 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     }
   }, [isOpen, currentMaxOrder, resetForm]);
 
-  const convertQuestions = (questions: Question[]): CertificationQuestion[] => {
-    return questions.map(q => ({
-      id: Math.random().toString(36).substring(2, 15),
-      question: q.question,
-      choices: q.options.map(option => ({
-        id: Math.random().toString(36).substring(2, 15),
-        text: option
-      })),
-      correctAnswer: q.correctAnswers[0],
-      explanation: q.explanation
-    }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
+      certificationId: '',  // これは後でサーバー側で設定される
       title,
-      content,
+      description: content,
+      videoUrl: videoUrl || '',
+      thumbnailUrl: '',
+      duration: duration || '',
       order,
-      videoUrl,
-      duration,
-      webText,
-      questions: convertQuestions(questions),
+      status: 'draft',
+      content: webText,
+      questions: [],  // 問題は別のエンドポイントで管理する
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
     onClose();
     resetForm();
@@ -149,13 +133,18 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
   const handleSaveAll = () => {
     generatedChapters.forEach((chapter, index) => {
       onSave({
+        certificationId: '',
         title: chapter.title,
-        content: chapter.content,
-        order: currentMaxOrder + index + 1,
+        description: chapter.content,
         videoUrl: '',
+        thumbnailUrl: '',
         duration: '',
-        webText: chapter.webText,
-        questions: convertQuestions(chapter.questions),
+        order: currentMaxOrder + index + 1,
+        status: 'draft',
+        content: chapter.webText,
+        questions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
     });
     onClose();
@@ -354,7 +343,6 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
                             onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
                             placeholder={`選択肢 ${optionIndex + 1}`}
                             className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            required
                           />
                         </div>
                       ))}

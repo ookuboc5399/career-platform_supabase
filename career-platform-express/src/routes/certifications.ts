@@ -1,7 +1,8 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
-import { uploadFile, CONTAINERS } from '../lib/storage';
-import { getCertifications, getCertification, createCertification as createCertificationInDb, updateCertification as updateCertificationInDb, getCertificationChapters, createCertificationChapter, certificationChaptersContainer, initializeDatabase } from '../lib/cosmos-db';
+import { uploadFile, BUCKETS } from '../lib/supabase-storage';
+import { getCertifications, getCertification, createCertification as createCertificationInDb, updateCertification as updateCertificationInDb, getCertificationChapters, createCertificationChapter, getCertificationChapter } from '../lib/supabase-db';
+import { supabaseAdmin } from '../lib/supabase';
 import { Certification, CertificationChapter } from '../types/api';
 
 const router = express.Router();
@@ -67,7 +68,7 @@ const createCertification: RequestHandler = async (req, res, next) => {
     // 画像ファイルがある場合はアップロード
     const imageUrl = req.file
       ? await uploadFile(
-          CONTAINERS.CERTIFICATION_IMAGES,
+          BUCKETS.CERTIFICATION_IMAGES,
           Buffer.from(req.file.buffer),
           req.file.originalname,
           req.file.mimetype
@@ -78,11 +79,10 @@ const createCertification: RequestHandler = async (req, res, next) => {
       name,
       description,
       imageUrl,
+      mainCategory: '',
       category: category as 'finance' | 'it' | 'business',
       difficulty: difficulty as 'beginner' | 'intermediate' | 'advanced',
       estimatedStudyTime,
-      mainCategory: '',
-      subCategory: '',
     });
 
     void res.status(201).json(newCertification);
@@ -104,6 +104,31 @@ const getChaptersByCertificationId: RequestHandler = async (req, res) => {
   }
 };
 
+// Get specific chapter
+const getChapterById: RequestHandler = async (req, res) => {
+  try {
+    const chapterId = req.params.chapterId;
+    const certificationId = req.query.certificationId as string;
+
+    if (!certificationId) {
+      void res.status(400).json({ error: 'Certification ID is required' });
+      return;
+    }
+
+    const chapter = await getCertificationChapter(chapterId);
+    
+    if (!chapter || chapter.certificationId !== certificationId) {
+      void res.status(404).json({ error: 'Chapter not found' });
+      return;
+    }
+
+    void res.json(chapter);
+  } catch (error) {
+    console.error('Error fetching chapter:', error);
+    void res.status(500).json({ error: 'Failed to fetch chapter' });
+  }
+};
+
 // Create new chapter
 const createChapter: RequestHandler = async (req, res) => {
   try {
@@ -112,33 +137,39 @@ const createChapter: RequestHandler = async (req, res) => {
     console.log('Files:', req.files);
 
     const certificationId = req.params.id;
-    const { title, description, order, status, duration } = req.body;
+    const { title, description, order, status, duration, content, questions } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
     // バリデーション
-    if (!title || !description || !files.video || !files.thumbnail || order === undefined || !status) {
+    if (!title || !description || order === undefined || !status) {
       console.error('Validation error: Missing required fields');
       void res.status(400).json({ error: 'Missing required fields' });
       return;
     }
 
-    // 動画とサムネイルをアップロード
-    const videoFile = files.video[0];
-    const thumbnailFile = files.thumbnail[0];
+    // 動画とサムネイルをアップロード（任意）
+    let videoUrl = '';
+    let thumbnailUrl = '';
 
-    const videoUrl = await uploadFile(
-      CONTAINERS.CERTIFICATION_VIDEOS,
-      Buffer.from(videoFile.buffer),
-      videoFile.originalname,
-      videoFile.mimetype
-    );
+    if (files?.video?.[0]) {
+      const videoFile = files.video[0];
+      videoUrl = await uploadFile(
+        BUCKETS.CERTIFICATION_VIDEOS,
+        Buffer.from(videoFile.buffer),
+        videoFile.originalname,
+        videoFile.mimetype
+      );
+    }
 
-    const thumbnailUrl = await uploadFile(
-      CONTAINERS.CERTIFICATION_THUMBNAILS,
-      Buffer.from(thumbnailFile.buffer),
-      thumbnailFile.originalname,
-      thumbnailFile.mimetype
-    );
+    if (files?.thumbnail?.[0]) {
+      const thumbnailFile = files.thumbnail[0];
+      thumbnailUrl = await uploadFile(
+        BUCKETS.CERTIFICATION_THUMBNAILS,
+        Buffer.from(thumbnailFile.buffer),
+        thumbnailFile.originalname,
+        thumbnailFile.mimetype
+      );
+    }
 
     const newChapter = await createCertificationChapter({
       certificationId,
@@ -149,10 +180,8 @@ const createChapter: RequestHandler = async (req, res) => {
       duration,
       order: parseInt(order),
       status: status as 'draft' | 'published',
-      content: '',
-      questions: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      content: content || '',
+      questions: questions || [],
     });
 
     void res.status(201).json(newChapter);
@@ -165,24 +194,65 @@ const createChapter: RequestHandler = async (req, res) => {
 // Update chapter
 const updateChapter: RequestHandler = async (req, res) => {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
     const chapterId = req.params.chapterId;
     const certificationId = req.params.id;
 
-    const { resource: existingChapter } = await certificationChaptersContainer.item(chapterId, certificationId).read();
-    if (!existingChapter) {
+    console.log('\n=== Update Chapter Request ===');
+    console.log('Chapter ID:', chapterId);
+    console.log('Certification ID:', certificationId);
+    console.log('Request body:', req.body);
+
+    const existingChapter = await getCertificationChapter(chapterId);
+    if (!existingChapter || existingChapter.certificationId !== certificationId) {
       void res.status(404).json({ error: 'Chapter not found' });
       return;
     }
 
-    const updatedChapter = {
-      ...existingChapter,
-      ...req.body,
-      updatedAt: new Date().toISOString()
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
     };
 
-    const { resource } = await certificationChaptersContainer.item(chapterId, certificationId).replace(updatedChapter);
-    void res.json(resource);
+    // キャメルケースをスネークケースに変換
+    if (req.body.title !== undefined) updateData.title = req.body.title;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.videoUrl !== undefined) updateData.video_url = req.body.videoUrl;
+    if (req.body.thumbnailUrl !== undefined) updateData.thumbnail_url = req.body.thumbnailUrl;
+    if (req.body.duration !== undefined) updateData.duration = req.body.duration;
+    if (req.body.order !== undefined) updateData.order = req.body.order;
+    if (req.body.status !== undefined) updateData.status = req.body.status;
+    if (req.body.content !== undefined) updateData.content = req.body.content;
+    if (req.body.questions !== undefined) updateData.questions = req.body.questions;
+
+    const { data: updated, error } = await supabaseAdmin!
+      .from('certification_chapters')
+      .update(updateData)
+      .eq('id', chapterId)
+      .eq('certification_id', certificationId)
+      .select()
+      .single();
+
+    if (error || !updated) {
+      throw error || new Error('Failed to update chapter');
+    }
+
+    // スネークケースからキャメルケースに変換
+    const formattedChapter = {
+      id: updated.id,
+      certificationId: updated.certification_id,
+      title: updated.title,
+      description: updated.description,
+      videoUrl: updated.video_url,
+      thumbnailUrl: updated.thumbnail_url,
+      duration: updated.duration,
+      order: updated.order,
+      status: updated.status,
+      content: updated.content,
+      questions: updated.questions || [],
+      createdAt: updated.created_at,
+      updatedAt: updated.updated_at,
+    };
+
+    void res.json(formattedChapter);
   } catch (error) {
     console.error('Error updating chapter:', error);
     void res.status(500).json({ error: 'Failed to update chapter' });
@@ -192,11 +262,19 @@ const updateChapter: RequestHandler = async (req, res) => {
 // Delete chapter
 const deleteChapter: RequestHandler = async (req, res) => {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
     const chapterId = req.params.chapterId;
     const certificationId = req.params.id;
 
-    await certificationChaptersContainer.item(chapterId, certificationId).delete();
+    const { error } = await supabaseAdmin!
+      .from('certification_chapters')
+      .delete()
+      .eq('id', chapterId)
+      .eq('certification_id', certificationId);
+
+    if (error) {
+      throw error;
+    }
+
     void res.status(204).send();
   } catch (error) {
     console.error('Error deleting chapter:', error);
@@ -230,11 +308,12 @@ router.put('/:id', express.json(), updateCertification);
 
 // チャプター関連のルート
 router.get('/:id/chapters', getChaptersByCertificationId);
-router.post('/:id/chapters', upload.fields([
+router.get('/chapters/:chapterId', getChapterById);
+router.post('/:id/chapters', express.json(), upload.fields([
   { name: 'video', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 }
 ]), createChapter);
-router.put('/:id/chapters/:chapterId', updateChapter);
+router.put('/:id/chapters/:chapterId', express.json(), updateChapter);
 router.delete('/:id/chapters/:chapterId', deleteChapter);
 
 export default router;

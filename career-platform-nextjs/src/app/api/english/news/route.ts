@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getContainer } from '@/lib/cosmos-db';
+import { fetchEnglishNews } from '@/lib/news-api';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    // 内部ニュースの取得
     const container = await getContainer('english-news');
-    console.log('Querying news...');
-    const { resources } = await container.items
+    console.log('Querying internal news...');
+    const { resources: internalNews } = await container.items
       .query({
         query: 'SELECT * FROM c ORDER BY c.createdAt DESC',
       })
       .fetchAll();
 
-    console.log('3. Query completed successfully');
-    return NextResponse.json(resources);
+    // 外部ニュースの取得
+    console.log('Fetching external news...');
+    const externalNews = await fetchEnglishNews();
+
+    // ニュースの結合と日付順でのソート
+    const allNews = [...internalNews, ...externalNews].sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log('News fetch completed successfully');
+    return NextResponse.json(allNews);
   } catch (error) {
     console.error('Error fetching news:', error);
     let errorMessage = 'Failed to fetch news';

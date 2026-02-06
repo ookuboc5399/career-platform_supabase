@@ -1,32 +1,18 @@
 import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { BlobServiceClient, StorageSharedKeyCredential, BlobSASPermissions, SASProtocol } from '@azure/storage-blob';
+import { uploadFile, generateSignedUrl, deleteFile as deleteSupabaseFile, BUCKETS } from '../lib/supabase-storage';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
-// Azure Storage設定
-const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
-const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-
-if (!accountName || !accountKey) {
-  throw new Error('Azure Storage credentials are not configured');
-}
-
-const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
-const blobServiceClient = new BlobServiceClient(
-  `https://${accountName}.blob.core.windows.net`,
-  sharedKeyCredential
-);
-
-// コンテナ名の定義
-const CONTAINERS = {
-  UNIVERSITY_IMAGES: 'university-images',
-  PROGRAMMING_VIDEOS: 'programming-videos',
-  PROGRAMMING_THUMBNAILS: 'programming-thumbnails',
-  CERTIFICATION_VIDEOS: 'certification-videos',
-  CERTIFICATION_THUMBNAILS: 'certification-thumbnails',
-  CERTIFICATION_IMAGES: 'certification-images',
+// バケット名のマッピング
+const BUCKET_MAP: { [key: string]: string } = {
+  'university-images': BUCKETS.UNIVERSITY_IMAGES,
+  'programming-video': BUCKETS.PROGRAMMING_VIDEOS,
+  'programming-thumbnail': BUCKETS.PROGRAMMING_THUMBNAILS,
+  'certification-video': BUCKETS.CERTIFICATION_VIDEOS,
+  'certification-thumbnail': BUCKETS.CERTIFICATION_THUMBNAILS,
+  'certification-image': BUCKETS.CERTIFICATION_IMAGES,
 } as const;
 
 // Multerの設定
@@ -48,63 +34,23 @@ router.post('/', upload.single('file'), async (req: FileRequest, res: Response, 
       return next();
     }
 
-    // ファイルの種類に基づいてコンテナを選択
-    let containerName: string;
-    switch (type) {
-      case 'university-images':
-        containerName = CONTAINERS.UNIVERSITY_IMAGES;
-        break;
-      case 'programming-video':
-        containerName = CONTAINERS.PROGRAMMING_VIDEOS;
-        break;
-      case 'programming-thumbnail':
-        containerName = CONTAINERS.PROGRAMMING_THUMBNAILS;
-        break;
-      case 'certification-video':
-        containerName = CONTAINERS.CERTIFICATION_VIDEOS;
-        break;
-      case 'certification-thumbnail':
-        containerName = CONTAINERS.CERTIFICATION_THUMBNAILS;
-        break;
-      case 'certification-image':
-        containerName = CONTAINERS.CERTIFICATION_IMAGES;
-        break;
-      default:
+    // ファイルの種類に基づいてバケットを選択
+    const bucketName = BUCKET_MAP[type];
+    if (!bucketName) {
         console.error('Invalid file type:', type);
         res.status(400).json({ error: `Invalid file type: ${type}` });
         return next();
     }
 
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-    
-    // コンテナが存在しない場合は作成
-    const exists = await containerClient.exists();
-    if (!exists) {
-      await containerClient.create({
-        access: 'blob' // Blobレベルのパブリックアクセスを許可
-      });
-    }
-    
-    const blobName = `${Date.now()}-${uuidv4()}-${file.originalname}`;
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    // Supabase Storageにアップロード
+    const url = await uploadFile(
+      bucketName,
+      file.buffer,
+      file.originalname,
+      file.mimetype
+    );
 
-    await blockBlobClient.uploadData(file.buffer, {
-      blobHTTPHeaders: { blobContentType: file.mimetype }
-    });
-
-    // SASトークンを生成して、一時的なアクセス可能なURLを作成
-    const startsOn = new Date();
-    const expiresOn = new Date(startsOn);
-    expiresOn.setFullYear(expiresOn.getFullYear() + 1); // 1年間有効
-
-    const sasUrl = await blockBlobClient.generateSasUrl({
-      permissions: BlobSASPermissions.parse("r"),
-      startsOn,
-      expiresOn,
-      protocol: SASProtocol.Https
-    });
-
-    res.json({ url: sasUrl });
+    res.json({ url });
     return next();
   } catch (error) {
     console.error('Error uploading file:', error);
@@ -113,36 +59,24 @@ router.post('/', upload.single('file'), async (req: FileRequest, res: Response, 
   }
 });
 
-// SASトークン生成エンドポイント
+// 署名付きURL生成エンドポイント（Supabase Storage用）
 router.post('/sas', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { containerName, blobName } = req.body;
+    const { bucketName, fileName } = req.body;
 
-    if (!containerName || !blobName) {
-      res.status(400).json({ error: 'Container name and blob name are required' });
+    if (!bucketName || !fileName) {
+      res.status(400).json({ error: 'Bucket name and file name are required' });
       return next();
     }
 
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    // Supabase Storageの署名付きURLを生成（1時間有効）
+    const signedUrl = await generateSignedUrl(bucketName, fileName, 3600);
 
-    const startsOn = new Date();
-    const expiresOn = new Date(new Date().valueOf() + 3600 * 1000); // 1時間有効
-
-    const permissions = new BlobSASPermissions();
-    permissions.read = true;
-
-    const sasToken = await blockBlobClient.generateSasUrl({
-      permissions,
-      startsOn,
-      expiresOn,
-    });
-
-    res.json({ sasToken });
+    res.json({ sasToken: signedUrl });
     return next();
   } catch (error) {
-    console.error('Error generating SAS token:', error);
-    res.status(500).json({ error: 'Failed to generate SAS token' });
+    console.error('Error generating signed URL:', error);
+    res.status(500).json({ error: 'Failed to generate signed URL' });
     return next(error);
   }
 });
@@ -150,23 +84,15 @@ router.post('/sas', async (req: Request, res: Response, next: NextFunction) => {
 // ファイル削除エンドポイント
 router.delete('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { containerName, url } = req.body;
+    const { bucketName, url } = req.body;
 
-    if (!containerName || !url) {
-      res.status(400).json({ error: 'Container name and URL are required' });
+    if (!bucketName || !url) {
+      res.status(400).json({ error: 'Bucket name and URL are required' });
       return next();
     }
 
-    const blobName = url.split('/').pop();
-    if (!blobName) {
-      res.status(400).json({ error: 'Invalid blob URL' });
-      return next();
-    }
-
-    const containerClient = blobServiceClient.getContainerClient(containerName);
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-
-    await blockBlobClient.delete();
+    // Supabase Storageからファイルを削除
+    await deleteSupabaseFile(bucketName, url);
 
     res.status(204).send();
     return next();

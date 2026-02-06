@@ -9,43 +9,16 @@ const client = new CosmosClient({
 const database = client.database('career-platform');
 const container = database.container('english-questions');
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { resource: question } = await container
-      .item(params.id, params.id)
-      .read();
-
-    if (!question) {
-      return NextResponse.json(
-        { error: 'Question not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(question);
-  } catch (error) {
-    console.error('Error fetching question:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch question' },
-      { status: 500 }
-    );
-  }
-}
-
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json();
+    const { id } = params;
 
-    const { resource: existingQuestion } = await container
-      .item(params.id, params.id)
-      .read();
-
+    // 既存の問題を取得
+    const { resource: existingQuestion } = await container.item(id, id).read();
     if (!existingQuestion) {
       return NextResponse.json(
         { error: 'Question not found' },
@@ -53,18 +26,15 @@ export async function PUT(
       );
     }
 
-    const updatedQuestion = {
+    // 問題を更新
+    const { resource: updatedQuestion } = await container.item(id, body.englishId || id).replace({
       ...existingQuestion,
       ...body,
-      id: params.id, // IDは変更不可
-      updatedAt: new Date().toISOString(),
-    };
+      id, // IDは変更しない
+      englishId: body.englishId || id, // 新しいenglishIdがあれば使用、なければidを使用
+    });
 
-    const { resource: result } = await container
-      .item(params.id, params.id)
-      .replace(updatedQuestion);
-
-    return NextResponse.json(result);
+    return NextResponse.json(updatedQuestion);
   } catch (error) {
     console.error('Error updating question:', error);
     return NextResponse.json(
@@ -79,8 +49,20 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await container.item(params.id, params.id).delete();
-    return new NextResponse(null, { status: 204 });
+    const { id } = params;
+
+    // 問題を削除
+    const { resource: existingQuestion } = await container.item(id, id).read();
+    if (!existingQuestion) {
+      return NextResponse.json(
+        { error: 'Question not found' },
+        { status: 404 }
+      );
+    }
+
+    await container.item(id, existingQuestion.englishId || id).delete();
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting question:', error);
     return NextResponse.json(
