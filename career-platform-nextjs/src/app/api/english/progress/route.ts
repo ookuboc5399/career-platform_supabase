@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/auth';
 import { EnglishProgress } from '@/types/english';
-import { getContainer } from '@/lib/cosmos-db';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const container = await getContainer('english-progress');
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -26,22 +25,34 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    const { resource: createdProgress } = await container.items.create({
-      ...progress,
-      partitionKey: session.user.id // パーティションキーとしてuserIdを使用
+    const { data, error } = await supabaseAdmin!.from('english_progress').insert({
+      id: progress.id,
+      user_id: progress.userId,
+      type: progress.type,
+      category: progress.category ?? null,
+      questions: progress.questions ?? [],
+      score: progress.score ?? 0,
+      total_questions: progress.totalQuestions ?? 0,
+      created_at: progress.createdAt,
+    }).select().single();
+
+    if (error) throw error;
+    return NextResponse.json({
+      ...data,
+      userId: data.user_id,
+      totalQuestions: data.total_questions,
+      createdAt: data.created_at,
     });
-    return NextResponse.json(createdProgress);
   } catch (error) {
     console.error('Error saving progress:', error);
     return NextResponse.json(
-      { error: 'Failed to save progress' },
+      { error: error instanceof Error ? error.message : 'Failed to save progress' },
       { status: 500 }
     );
   }
 }
 
 export async function GET(request: Request) {
-  const container = await getContainer('english-progress');
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -52,43 +63,30 @@ export async function GET(request: Request) {
     const type = searchParams.get('type');
     const category = searchParams.get('category');
 
-    let querySpec = {
-      query: 'SELECT * FROM c WHERE c.userId = @userId',
-      parameters: [
-        {
-          name: '@userId',
-          value: session.user.id
-        }
-      ]
-    };
+    let query = supabaseAdmin!
+      .from('english_progress')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
 
-    if (type) {
-      querySpec.query += ' AND c.type = @type';
-      querySpec.parameters.push({
-        name: '@type',
-        value: type
-      });
-    }
+    if (type) query = query.eq('type', type);
+    if (category) query = query.eq('category', category);
 
-    if (category) {
-      querySpec.query += ' AND c.category = @category';
-      querySpec.parameters.push({
-        name: '@category',
-        value: category
-      });
-    }
+    const { data, error } = await query;
 
-    querySpec.query += ' ORDER BY c.createdAt DESC';
+    if (error) throw error;
 
-    const { resources: progress } = await container.items
-      .query(querySpec)
-      .fetchAll();
-
+    const progress = (data ?? []).map((row) => ({
+      ...row,
+      userId: row.user_id,
+      totalQuestions: row.total_questions,
+      createdAt: row.created_at,
+    }));
     return NextResponse.json(progress);
   } catch (error) {
     console.error('Error fetching progress:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch progress' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch progress' },
       { status: 500 }
     );
   }

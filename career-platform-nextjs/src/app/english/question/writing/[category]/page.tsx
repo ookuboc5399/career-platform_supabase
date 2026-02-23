@@ -93,7 +93,7 @@ export default function WritingCategoryPage({ params }: { params: { category: st
       if (questionArray[0]?.content.english) {
         if (Array.isArray(questionArray[0].content.english)) {
           // 複数の英文がある場合、それぞれを単語に分割してシャッフル
-          const allWords = questionArray[0].content.english.map((text, textIndex) => {
+          const allWords = questionArray[0].content.english.map((text: string, textIndex: number) => {
             const words = text
               .split(' ')
               .map((word: string, index: number) => ({
@@ -582,7 +582,7 @@ export default function WritingCategoryPage({ params }: { params: { category: st
                               </p>
                               <p className="whitespace-pre-wrap">
                                 <span className="font-semibold">正解 ({index + 1})：</span>
-                                {questions[0].content.english[index]}
+                                {questions[0]?.content?.english?.[index]}
                               </p>
                             </div>
                           ))

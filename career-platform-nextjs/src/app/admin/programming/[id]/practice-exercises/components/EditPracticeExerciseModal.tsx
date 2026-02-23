@@ -208,10 +208,11 @@ export default function EditPracticeExerciseModal({
       const newChoices = choices.filter((_, i) => i !== index);
       setChoices(newChoices);
       // 削除された選択肢が正解だった場合、正解をリセット
-      if (correctAnswer === index) {
+      const numAnswer = Array.isArray(correctAnswer) ? correctAnswer[0] ?? 0 : correctAnswer;
+      if (numAnswer === index) {
         setCorrectAnswer(0);
-      } else if (correctAnswer > index) {
-        setCorrectAnswer(correctAnswer - 1);
+      } else if (numAnswer > index) {
+        setCorrectAnswer(numAnswer - 1);
       }
     }
   };

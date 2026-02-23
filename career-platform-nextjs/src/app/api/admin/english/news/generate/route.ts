@@ -1,33 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import { getEnglishNewsContainer } from '@/lib/cosmos-db';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    // Express APIを呼び出してニュースを生成
-    const response = await axios.post('http://localhost:3001/api/english/news/generate');
-    const { title, content, conversation, audioUrl, imageUrl } = response.data;
+    const expressUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || process.env.EXPRESS_API_URL || 'http://localhost:3001';
+    const response = await fetch(`${expressUrl}/api/english/news/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-    // CosmosDBに保存
-    const container = await getEnglishNewsContainer();
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(err || 'Failed to generate news');
+    }
+
+    const { title, content, conversation, audioUrl, imageUrl } = await response.json();
+
     const newsItem = {
       id: `news-${Date.now()}`,
-      title,
-      content,
-      conversation,
-      audioUrl,
-      imageUrl,
-      createdAt: new Date().toISOString(),
-      isPublished: false,
+      title: title ?? 'Generated News',
+      content: content ?? {},
+      type: null,
+      difficulty: null,
     };
 
-    await container.items.create(newsItem);
+    const { data, error } = await supabaseAdmin!
+      .from('english_news')
+      .insert({
+        id: newsItem.id,
+        title: newsItem.title,
+        content: { ...newsItem.content, conversation, audioUrl, imageUrl },
+        type: newsItem.type,
+        difficulty: newsItem.difficulty,
+      })
+      .select()
+      .single();
 
-    return NextResponse.json(newsItem);
+    if (error) throw error;
+    return NextResponse.json({
+      ...data,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    });
   } catch (error) {
     console.error('Error generating news:', error);
     return NextResponse.json(
-      { error: 'Failed to generate news' },
+      { error: error instanceof Error ? error.message : 'Failed to generate news' },
       { status: 500 }
     );
   }

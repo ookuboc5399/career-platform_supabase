@@ -150,6 +150,7 @@ export interface ProgrammingChapter extends BaseEntity {
   title: string;
   description: string;
   videoUrl: string;
+  thumbnailUrl?: string;
   duration: string;
   order: number;
   status: 'draft' | 'published';

@@ -959,6 +959,206 @@ export async function recordQuestionAnswer(
   };
 }
 
+// =========================
+// English News
+// =========================
+
+export interface EnglishNews {
+  id: string;
+  title?: string;
+  content?: any;
+  type?: string;
+  difficulty?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export async function getEnglishNewsList(): Promise<EnglishNews[]> {
+  const { data, error } = await supabaseAdmin!
+    .from('english_news')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching english news:', error);
+    throw error;
+  }
+  return (data || []).map((row: any) => {
+    const base = {
+      id: row.id,
+      title: row.title,
+      content: row.content,
+      type: row.type,
+      difficulty: row.difficulty,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+    return typeof row.content === 'object' && row.content !== null
+      ? { ...base, ...row.content }
+      : base;
+  });
+}
+
+export async function getEnglishNewsById(id: string): Promise<EnglishNews | undefined> {
+  const { data, error } = await supabaseAdmin!
+    .from('english_news')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return undefined;
+    throw error;
+  }
+  if (!data) return undefined;
+  const base = {
+    id: data.id,
+    title: data.title,
+    content: data.content,
+    type: data.type,
+    difficulty: data.difficulty,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+  return typeof data.content === 'object' && data.content !== null
+    ? { ...base, ...data.content }
+    : base;
+}
+
+export async function createEnglishNews(item: Partial<EnglishNews> & Record<string, any>): Promise<EnglishNews> {
+  const id = item.id || Math.random().toString(36).substring(2, 15);
+  const now = new Date().toISOString();
+  const content = item.content ?? item;
+  const { data, error } = await supabaseAdmin!
+    .from('english_news')
+    .insert({
+      id,
+      title: item.title ?? null,
+      content: content,
+      type: item.type ?? null,
+      difficulty: item.difficulty ?? null,
+      created_at: now,
+      updated_at: now,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, createdAt: data.created_at, updatedAt: data.updated_at };
+}
+
+export async function updateEnglishNews(id: string, updates: Partial<EnglishNews>): Promise<EnglishNews | undefined> {
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.content !== undefined) updateData.content = updates.content;
+  if (updates.type !== undefined) updateData.type = updates.type;
+  if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
+
+  const { data, error } = await supabaseAdmin!
+    .from('english_news')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return undefined;
+    throw error;
+  }
+  return data ? { ...data, createdAt: data.created_at, updatedAt: data.updated_at } : undefined;
+}
+
+export async function deleteEnglishNews(id: string): Promise<void> {
+  const { error } = await supabaseAdmin!
+    .from('english_news')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// =========================
+// English Questions
+// =========================
+
+export async function getEnglishQuestions(filters?: { type?: string; category?: string; level?: string; difficulty?: string }): Promise<any[]> {
+  let query = supabaseAdmin!.from('english_questions').select('*');
+  if (filters?.type) query = query.eq('type', filters.type);
+  if (filters?.category) query = query.eq('category', filters.category);
+  if (filters?.level) query = query.eq('level', filters.level);
+  if (filters?.difficulty) query = query.eq('difficulty', filters.difficulty);
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function getEnglishQuestionById(id: string): Promise<any | undefined> {
+  const { data, error } = await supabaseAdmin!
+    .from('english_questions')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') return undefined;
+    throw error;
+  }
+  return data ? { ...data, createdAt: data.created_at, updatedAt: data.updated_at } : undefined;
+}
+
+export async function createEnglishQuestion(item: any): Promise<any> {
+  const id = item.id || Math.random().toString(36).substring(2, 15);
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin!
+    .from('english_questions')
+    .insert({
+      id,
+      type: item.type,
+      category: item.category,
+      level: item.level,
+      difficulty: item.difficulty ?? null,
+      content: item.content,
+      created_at: now,
+      updated_at: now,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return { ...data, createdAt: data.created_at, updatedAt: data.updated_at };
+}
+
+export async function updateEnglishQuestion(id: string, updates: any): Promise<any | undefined> {
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (updates.type !== undefined) updateData.type = updates.type;
+  if (updates.category !== undefined) updateData.category = updates.category;
+  if (updates.level !== undefined) updateData.level = updates.level;
+  if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
+  if (updates.content !== undefined) updateData.content = updates.content;
+
+  const { data, error } = await supabaseAdmin!
+    .from('english_questions')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') return undefined;
+    throw error;
+  }
+  return data ? { ...data, createdAt: data.created_at, updatedAt: data.updated_at } : undefined;
+}
+
+export async function deleteEnglishQuestion(id: string): Promise<void> {
+  const { error } = await supabaseAdmin!
+    .from('english_questions')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // マッピング関数: DB形式からアプリ形式へ
 function mapUniversityFromDB(data: any): University {
   return {

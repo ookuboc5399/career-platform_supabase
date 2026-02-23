@@ -224,8 +224,9 @@ export default function ProgrammingPracticePage() {
       if (chapterId && selectedChapterTitle) {
         filteredExercises = exercises.filter(ex => {
           // 試験対策用の問題は、chapterIdで判定
-          if (ex.chapterId) {
-            return ex.chapterId === chapterId;
+          const exWithChapter = ex as unknown as { chapterId?: string };
+          if (exWithChapter.chapterId) {
+            return exWithChapter.chapterId === chapterId;
           }
           // チャプター学習用の問題は、chapterTitleで判定
           return ex.chapterTitle === selectedChapterTitle;

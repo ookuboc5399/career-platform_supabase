@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
     const sasUrl = await generateSasUrl(videoUrl);
     return NextResponse.json({ url: sasUrl });
   } catch (error) {
-    console.error('Error generating SAS URL:', error);
+    console.error('Error generating signed URL:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate SAS URL' },
+      { error: error instanceof Error ? error.message : 'Failed to generate signed URL' },
       { status: 500 }
     );
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getContainer } from '@/lib/cosmos-db';
+import { fetchEnglishNews } from '@/lib/news-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +7,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     // 外部ニュースはCosmosDBに保存されていないため、NewsAPIから再取得
     console.log('Fetching news from NewsAPI...');
-    const { fetchEnglishNews } = await import('@/lib/news-api');
     const allNews = await fetchEnglishNews();
     console.log('All news:', allNews);
     console.log('Looking for news with ID:', params.id);

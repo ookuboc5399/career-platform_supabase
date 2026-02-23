@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || '',
-});
-
-const database = client.database('career-platform');
-const container = database.container('english-questions');
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const { resources: questions } = await container.items
-      .query('SELECT * FROM c')
-      .fetchAll();
+    const { data, error } = await supabaseAdmin!
+      .from('english_questions')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    return NextResponse.json(questions);
+    if (error) throw error;
+    return NextResponse.json(data ?? []);
   } catch (error) {
     console.error('Error fetching questions:', error);
     return NextResponse.json(
@@ -30,15 +24,28 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const question = {
-      id: `question-${Date.now()}`,
-      englishId: `question-${Date.now()}`, // パーティションキーとして使用
-      createdAt: new Date().toISOString(),
-      ...body,
+      id: body.id ?? `question-${Date.now()}`,
+      type: body.type ?? 'writing',
+      category: body.category ?? null,
+      level: body.level ?? null,
+      difficulty: body.difficulty ?? null,
+      content: body.content ?? body,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    const { resource: createdQuestion } = await container.items.create(question);
+    const { data, error } = await supabaseAdmin!
+      .from('english_questions')
+      .insert(question)
+      .select()
+      .single();
 
-    return NextResponse.json(createdQuestion);
+    if (error) throw error;
+    return NextResponse.json({
+      ...data,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    });
   } catch (error) {
     console.error('Error creating question:', error);
     return NextResponse.json(

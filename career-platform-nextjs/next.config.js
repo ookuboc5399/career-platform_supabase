@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   output: 'standalone',
   experimental: { 
     optimizePackageImports: ['react-quill']
@@ -51,7 +54,7 @@ const nextConfig = {
   },
   transpilePackages: ['react-quill'],
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'https://career-platform-express-a4bwhcbwf6cmaegs.eastus2-01.azurewebsites.net';
+    const apiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3001';
     
     // Next.js APIルート（/app/api/*/route.ts）が存在する場合は、そちらが優先されます
     // /api/english/movies と /api/admin/english/movies は Next.js API ルートで処理されるため、

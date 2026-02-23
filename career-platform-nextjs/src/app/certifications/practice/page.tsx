@@ -55,7 +55,7 @@ export default function CertificationPracticePage() {
   const handleSubmit = () => {
     if (selectedAnswer === null || !currentQuestion) return;
 
-    const isAnswerCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    const isAnswerCorrect = (currentQuestion.correctAnswers ?? [(currentQuestion as { correctAnswer?: number }).correctAnswer ?? -1]).includes(selectedAnswer);
     setIsCorrect(isAnswerCorrect);
     setIsAnswered(true);
   };
@@ -101,9 +101,9 @@ export default function CertificationPracticePage() {
             <p className="text-lg mb-6">{currentQuestion.question}</p>
 
             <div className="space-y-4">
-              {currentQuestion.choices.map((choice, index) => (
+              {(currentQuestion.options ?? []).map((choice, index) => (
                 <button
-                  key={choice.id}
+                  key={index}
                   onClick={() => handleAnswerSelect(index)}
                   className={`w-full p-4 text-left rounded-lg border transition-colors ${
                     selectedAnswer === index
@@ -112,7 +112,7 @@ export default function CertificationPracticePage() {
                           ? 'bg-green-100 border-green-500'
                           : 'bg-red-100 border-red-500'
                         : 'bg-blue-100 border-blue-500'
-                      : isAnswered && index === currentQuestion.correctAnswer
+                      : isAnswered && (currentQuestion.correctAnswers ?? [(currentQuestion as { correctAnswer?: number }).correctAnswer ?? -1]).includes(index)
                       ? 'bg-green-100 border-green-500'
                       : 'hover:bg-gray-50 border-gray-200'
                   }`}

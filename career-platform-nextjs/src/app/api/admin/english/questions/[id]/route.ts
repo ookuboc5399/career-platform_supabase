@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || '',
-});
-
-const database = client.database('career-platform');
-const container = database.container('english-questions');
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function PUT(
   request: Request,
@@ -17,24 +9,38 @@ export async function PUT(
     const body = await request.json();
     const { id } = params;
 
-    // 既存の問題を取得
-    const { resource: existingQuestion } = await container.item(id, id).read();
-    if (!existingQuestion) {
-      return NextResponse.json(
-        { error: 'Question not found' },
-        { status: 404 }
-      );
+    const { data: existing, error: fetchError } = await supabaseAdmin!
+      .from('english_questions')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
 
-    // 問題を更新
-    const { resource: updatedQuestion } = await container.item(id, body.englishId || id).replace({
-      ...existingQuestion,
-      ...body,
-      id, // IDは変更しない
-      englishId: body.englishId || id, // 新しいenglishIdがあれば使用、なければidを使用
-    });
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (body.type !== undefined) updateData.type = body.type;
+    if (body.category !== undefined) updateData.category = body.category;
+    if (body.level !== undefined) updateData.level = body.level;
+    if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
+    if (body.content !== undefined) updateData.content = body.content;
 
-    return NextResponse.json(updatedQuestion);
+    const { data: updated, error } = await supabaseAdmin!
+      .from('english_questions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({
+      ...updated,
+      createdAt: updated.created_at,
+      updatedAt: updated.updated_at,
+    });
   } catch (error) {
     console.error('Error updating question:', error);
     return NextResponse.json(
@@ -51,17 +57,9 @@ export async function DELETE(
   try {
     const { id } = params;
 
-    // 問題を削除
-    const { resource: existingQuestion } = await container.item(id, id).read();
-    if (!existingQuestion) {
-      return NextResponse.json(
-        { error: 'Question not found' },
-        { status: 404 }
-      );
-    }
+    const { error } = await supabaseAdmin!.from('english_questions').delete().eq('id', id);
 
-    await container.item(id, existingQuestion.englishId || id).delete();
-
+    if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting question:', error);

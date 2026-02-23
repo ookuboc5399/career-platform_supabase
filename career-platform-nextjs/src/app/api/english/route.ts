@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EnglishContent } from '@/types/api';
-import { getContainer } from '@/lib/cosmos-db';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,25 +78,45 @@ export async function GET(request: NextRequest) {
     const difficulty = searchParams.get('difficulty');
 
     try {
-      const container = await getContainer('english');
-      const querySpec = {
-        query: 'SELECT * FROM c WHERE 1=1' + 
-          (type ? ' AND c.type = @type' : '') +
-          (difficulty ? ' AND c.difficulty = @difficulty' : ''),
-        parameters: [
-          ...(type ? [{ name: '@type', value: type }] : []),
-          ...(difficulty ? [{ name: '@difficulty', value: difficulty }] : [])
-        ]
+      const [moviesRes, newsRes] = await Promise.all([
+        supabaseAdmin!.from('english_movies').select('*'),
+        supabaseAdmin!.from('english_news').select('*'),
+      ]);
+
+      let resources: EnglishContent[] = [];
+
+      const toContent = (row: { id: string; title?: string; content?: unknown; type?: string; difficulty?: string; created_at?: string; updated_at?: string }) => {
+        const c = typeof row.content === 'object' && row.content ? row.content as Record<string, unknown> : {};
+        return {
+          id: row.id,
+          title: row.title ?? c.title ?? '',
+          description: c.description ?? '',
+          type: row.type ?? c.type ?? 'movie',
+          difficulty: row.difficulty ?? c.difficulty ?? 'intermediate',
+          videoUrl: c.videoUrl ?? '',
+          imageUrl: c.imageUrl ?? '',
+          content: c.content ?? '',
+          exercises: c.exercises ?? [],
+          resources: c.resources ?? [],
+          createdAt: row.created_at ?? c.createdAt ?? '',
+          updatedAt: row.updated_at ?? c.updatedAt ?? '',
+          ...c,
+        } as EnglishContent;
       };
 
-      const { resources } = await container.items.query(querySpec).fetchAll();
+      const movies = (moviesRes.data ?? []).map(toContent);
+      const news = (newsRes.data ?? []).map(toContent);
+      resources = [...movies, ...news];
+
+      if (type) resources = resources.filter((item) => item.type === type);
+      if (difficulty) resources = resources.filter((item) => item.difficulty === difficulty);
+
       return NextResponse.json(resources);
     } catch (dbError) {
       console.error('Database error:', dbError);
-      // フォールバック: モックデータを使用
       let content = Object.values(mockContent);
-      if (type) content = content.filter(item => item.type === type);
-      if (difficulty) content = content.filter(item => item.difficulty === difficulty);
+      if (type) content = content.filter((item) => item.type === type);
+      if (difficulty) content = content.filter((item) => item.difficulty === difficulty);
       return NextResponse.json(content);
     }
   } catch (error) {
@@ -114,7 +134,6 @@ export async function POST(request: NextRequest) {
     const { title, description, type, difficulty, videoUrl, imageUrl, content, exercises, resources } = body;
 
     try {
-      const container = await getContainer('english');
       const now = new Date().toISOString();
       const id = `${type}-${Date.now()}`;
 
@@ -127,28 +146,45 @@ export async function POST(request: NextRequest) {
         videoUrl,
         imageUrl,
         content,
-        exercises: exercises.map((e: any, index: number) => ({
+        exercises: (exercises ?? []).map((e: { id?: string; choices?: unknown[] }, index: number) => ({
           ...e,
-          id: `${id}-e${index + 1}`,
-          choices: e.choices.map((c: any, cIndex: number) => ({
+          id: e.id ?? `${id}-e${index + 1}`,
+          choices: ((e.choices ?? []) as { id?: string }[]).map((c, cIndex) => ({
             ...c,
-            id: `${id}-e${index + 1}-c${cIndex + 1}`,
+            id: c.id ?? `${id}-e${index + 1}-c${cIndex + 1}`,
           })),
         })),
-        resources,
+        resources: resources ?? [],
         createdAt: now,
         updatedAt: now,
       };
 
-      const { resource } = await container.items.create(newContent);
-      return NextResponse.json(resource);
+      const table = type === 'news' ? 'english_news' : 'english_movies';
+      const { data, error } = await supabaseAdmin!.from(table).insert({
+        id,
+        title,
+        content: newContent,
+        type,
+        difficulty,
+        created_at: now,
+        updated_at: now,
+      }).select().single();
+
+      if (error) throw error;
+      const row = data as { id: string; title?: string; content?: unknown; type?: string; difficulty?: string; created_at?: string; updated_at?: string };
+      const c = typeof row.content === 'object' && row.content ? row.content as Record<string, unknown> : {};
+      return NextResponse.json({
+        id: row.id,
+        ...c,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
     } catch (dbError) {
       console.error('Database error:', dbError);
-      // フォールバック: モックデータを使用
       const id = `${type}-${Object.keys(mockContent).length + 1}`;
       const now = new Date().toISOString();
       const newContent = { id, title, description, type, difficulty, videoUrl, imageUrl, content, exercises, resources, createdAt: now, updatedAt: now };
-      mockContent[id] = newContent;
+      mockContent[id] = newContent as EnglishContent;
       return NextResponse.json(newContent);
     }
   } catch (error) {

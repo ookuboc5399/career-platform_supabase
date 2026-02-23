@@ -61,6 +61,7 @@ export default function ChatQuestionGenerator() {
       const questions = generatedQuestions.map((q): Question => ({
         id: `question-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         type: selectedType,
+        imageUrl: '',
         content: q,
         createdAt: new Date().toISOString(),
       }));

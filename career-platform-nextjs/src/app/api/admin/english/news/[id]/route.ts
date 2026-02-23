@@ -1,30 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEnglishNewsContainer } from '@/lib/cosmos-db';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const container = await getEnglishNewsContainer();
     const data = await request.json();
 
-    const { resource } = await container.item(params.id, params.id).read();
-    if (!resource) {
-      return NextResponse.json(
-        { error: 'News not found' },
-        { status: 404 }
-      );
+    const { data: existing, error: fetchError } = await supabaseAdmin!
+      .from('english_news')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: 'News not found' }, { status: 404 });
     }
 
-    const updatedNews = {
-      ...resource,
-      ...data,
-      updatedAt: new Date().toISOString(),
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
     };
+    if (data.title !== undefined) updatePayload.title = data.title;
+    if (data.content !== undefined) updatePayload.content = data.content;
+    if (data.type !== undefined) updatePayload.type = data.type;
+    if (data.difficulty !== undefined) updatePayload.difficulty = data.difficulty;
 
-    const { resource: result } = await container.item(params.id, params.id).replace(updatedNews);
-    return NextResponse.json(result);
+    const { data: result, error } = await supabaseAdmin!
+      .from('english_news')
+      .update(updatePayload)
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({
+      ...result,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+      ...(typeof result.content === 'object' && result.content ? result.content : {}),
+    });
   } catch (error) {
     console.error('Error updating news:', error);
     return NextResponse.json(
@@ -39,8 +54,12 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const container = await getEnglishNewsContainer();
-    await container.item(params.id, params.id).delete();
+    const { error } = await supabaseAdmin!
+      .from('english_news')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) throw error;
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting news:', error);

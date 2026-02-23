@@ -53,67 +53,12 @@ export interface NewsAPIResponse {
   articles: NewsAPIArticle[];
 }
 
-async function generateLearningElements(content: string) {
-  try {
-    const prompt = `Analyze this news article and provide:
-    1. 5 important vocabulary words with their definitions and example sentences
-    2. 3 key grammar points used in the text with explanations
-    3. 2 useful expressions or idioms from the text with their meanings
-
-    News content:
-    ${content}`;
-
-    const response = await axios.post(
-      `${process.env.AZURE_OPENAI_GPT4_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_GPT4_DEPLOYMENT_NAME}/chat/completions?api-version=${process.env.AZURE_OPENAI_GPT4_API_VERSION}`,
-      {
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1000,
-      },
-      {
-        headers: {
-          'api-key': process.env.AZURE_OPENAI_GPT4_API_KEY,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const analysis = response.data.choices[0].message?.content || '';
-    const sections = analysis.split(/\d+\./);
-
-    return {
-      vocabulary: sections[1]?.split('\n').filter(Boolean).map((line: string) => {
-        const [word, ...rest] = line.split(':');
-        const [definition, example] = rest.join(':').split('Example:');
-        return {
-          word: word.trim(),
-          definition: definition?.trim() || '',
-          example: example?.trim() || '',
-        };
-      }) || [],
-      grammar: sections[2]?.split('\n').filter(Boolean).map((line: string) => {
-        const [point, explanation] = line.split(':');
-        return {
-          point: point.trim(),
-          explanation: explanation?.trim() || '',
-        };
-      }) || [],
-      expressions: sections[3]?.split('\n').filter(Boolean).map((line: string) => {
-        const [phrase, meaning] = line.split(':');
-        return {
-          phrase: phrase.trim(),
-          meaning: meaning?.trim() || '',
-        };
-      }) || [],
-    };
-  } catch (error) {
-    console.error('Error generating learning elements:', error);
-    return {
-      vocabulary: [],
-      grammar: [],
-      expressions: [],
-    };
-  }
+async function generateLearningElements(_content: string) {
+  return {
+    vocabulary: [],
+    grammar: [],
+    expressions: [],
+  };
 }
 
 export async function fetchEnglishNews() {

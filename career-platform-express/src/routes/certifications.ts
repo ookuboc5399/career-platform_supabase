@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import multer from 'multer';
 import { uploadFile, BUCKETS } from '../lib/supabase-storage';
-import { getCertifications, getCertification, createCertification as createCertificationInDb, updateCertification as updateCertificationInDb, getCertificationChapters, createCertificationChapter, getCertificationChapter } from '../lib/supabase-db';
+import { getCertifications, getCertification, createCertification as createCertificationInDb, updateCertification as updateCertificationInDb, deleteCertification as deleteCertificationInDb, getCertificationChapters, createCertificationChapter, getCertificationChapter } from '../lib/supabase-db';
 import { supabaseAdmin } from '../lib/supabase';
 import { Certification, CertificationChapter } from '../types/api';
 
@@ -301,10 +301,23 @@ const updateCertification: RequestHandler = async (req, res) => {
   }
 };
 
+// Delete certification
+const deleteCertification: RequestHandler = async (req, res) => {
+  try {
+    const certificationId = req.params.id;
+    await deleteCertificationInDb(certificationId);
+    void res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting certification:', error);
+    void res.status(500).json({ error: 'Failed to delete certification' });
+  }
+};
+
 router.get('/', getAllCertifications);
 router.get('/:id', getCertificationById);
 router.post('/', upload.single('image'), createCertification);
 router.put('/:id', express.json(), updateCertification);
+router.delete('/:id', deleteCertification);
 
 // チャプター関連のルート
 router.get('/:id/chapters', getChaptersByCertificationId);

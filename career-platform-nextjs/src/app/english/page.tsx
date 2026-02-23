@@ -6,7 +6,7 @@ const features = [
   {
     id: 'conversation',
     title: 'AIと英会話練習',
-    description: 'Azure OpenAIを使用して、リアルタイムの英会話練習ができます。自然な会話を通じて、スピーキングとリスニングのスキルを向上させましょう。',
+    description: 'AIを活用したリアルタイムの英会話練習ができます。自然な会話を通じて、スピーキングとリスニングのスキルを向上させましょう。',
     imageUrl: '/images/english/self-intro.svg',
     href: '/english/conversation'
   },

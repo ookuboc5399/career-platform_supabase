@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BlobServiceClient, BlobSASPermissions } from '@azure/storage-blob';
+import { generateSasToken } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
-if (!process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING) {
-  throw new Error('Azure Storage connection string is not configured');
-}
-
-const blobServiceClient = BlobServiceClient.fromConnectionString(
-  process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING
-);
-
-const programmingVideosContainer = blobServiceClient.getContainerClient('programming-videos');
+const PROGRAMMING_VIDEOS_BUCKET = 'programming-videos';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,20 +17,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const blockBlobClient = programmingVideosContainer.getBlockBlobClient(blobName);
-    const permissions = new BlobSASPermissions();
-    permissions.read = true;
-
-    const sasUrl = await blockBlobClient.generateSasUrl({
-      permissions,
-      expiresOn: new Date(new Date().valueOf() + 3600 * 1000), // 1時間有効
-    });
-
-    return NextResponse.json({ url: sasUrl });
+    const url = await generateSasToken(PROGRAMMING_VIDEOS_BUCKET, blobName);
+    return NextResponse.json({ url });
   } catch (error) {
     console.error('SAS generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate SAS token' },
+      { error: 'Failed to generate signed URL' },
       { status: 500 }
     );
   }

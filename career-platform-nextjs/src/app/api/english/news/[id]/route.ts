@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getContainer } from '@/lib/cosmos-db';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,35 +8,29 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const container = await getContainer('english-news');
     const id = params.id;
-    console.log('Fetching news item...', { id });
+    const { data, error } = await supabaseAdmin!
+      .from('english_news')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    const { resource } = await container.item(id, id).read();
-    if (!resource) {
-      return NextResponse.json(
-        { error: 'News not found' },
-        { status: 404 }
-      );
+    if (error || !data) {
+      return NextResponse.json({ error: 'News not found' }, { status: 404 });
     }
 
-    console.log('3. News item found');
-    return NextResponse.json(resource);
+    const result = {
+      ...data,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      ...(typeof data.content === 'object' && data.content ? data.content : {}),
+    };
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching news:', error);
-    let errorMessage = 'Failed to fetch news';
-    let status = 500;
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      if (errorMessage === 'News not found') {
-        status = 404;
-      }
-    }
-
     return NextResponse.json(
-      { error: errorMessage },
-      { status }
+      { error: error instanceof Error ? error.message : 'Failed to fetch news' },
+      { status: 500 }
     );
   }
 }
@@ -46,38 +40,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const container = await getContainer('english-news');
     const id = params.id;
 
-    if (!id) {
-      throw new Error('News ID is required');
-    }
+    const { error } = await supabaseAdmin!.from('english_news').delete().eq('id', id);
 
-    console.log('1. Checking if news exists...', { id });
-    const { resource } = await container.item(id, id).read();
-    if (!resource) {
-      throw new Error('News not found');
-    }
-
-    console.log('2. Deleting news item...');
-    await container.item(id, id).delete();
-    console.log('3. Delete completed successfully');
+    if (error) throw error;
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting news:', error);
-    let errorMessage = 'Failed to delete news';
-    let status = 500;
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      if (errorMessage === 'News not found') {
-        status = 404;
-      }
-    }
-
     return NextResponse.json(
-      { error: errorMessage },
-      { status }
+      { error: error instanceof Error ? error.message : 'Failed to delete news' },
+      { status: 500 }
     );
   }
 }

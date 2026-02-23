@@ -256,6 +256,6 @@ export class RealtimeClient {
   }
 }
 
-export const createRealtimeClient = (options: RealtimeClientOptions) => {
-  return new RealtimeClient(options);
+export const createRealtimeClient = (_options: RealtimeClientOptions) => {
+  throw new Error('Azure リアルタイム会話はスタブ化されています。後で OpenAI API 等に置換予定です。');
 };

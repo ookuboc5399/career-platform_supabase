@@ -27,7 +27,7 @@ export default function MovieDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentSubtitle, setCurrentSubtitle] = useState<Subtitle | null>(null);
   const [subtitleList, setSubtitleList] = useState<Subtitle[]>([]);
-  const playerRef = useRef<{ seekTo: (time: number) => void } | null>(null);
+  const playerRef = useRef<import('@/components/ui/SimpleVideoPlayer').SimpleVideoPlayerHandle | null>(null);
 
   const loadMovie = useCallback(async () => {
     try {

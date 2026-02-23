@@ -1,16 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getEnglishNewsContainer } from '@/lib/cosmos-db';
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const container = await getEnglishNewsContainer();
-    const { resources } = await container.items
-      .query({
-        query: 'SELECT * FROM c ORDER BY c.createdAt DESC',
-      })
-      .fetchAll();
+    const { data, error } = await supabaseAdmin!
+      .from('english_news')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    return NextResponse.json(resources);
+    if (error) throw error;
+
+    const items = (data ?? []).map((row) => ({
+      ...row,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      ...(typeof row.content === 'object' && row.content ? row.content : {}),
+    }));
+    return NextResponse.json(items);
   } catch (error) {
     console.error('Error fetching news:', error);
     return NextResponse.json(

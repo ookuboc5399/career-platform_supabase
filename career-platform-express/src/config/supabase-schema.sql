@@ -169,6 +169,18 @@ CREATE TABLE IF NOT EXISTS english_questions (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- English Progress テーブル（文法・語彙・ライティングの進捗）
+CREATE TABLE IF NOT EXISTS english_progress (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type TEXT CHECK (type IN ('grammar', 'vocabulary', 'writing')) NOT NULL,
+  category TEXT,
+  questions JSONB DEFAULT '[]'::jsonb,
+  score INTEGER DEFAULT 0,
+  total_questions INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- English Questions Progress テーブル（ユーザーごとの正解履歴）
 CREATE TABLE IF NOT EXISTS english_questions_progress (
   id TEXT PRIMARY KEY,

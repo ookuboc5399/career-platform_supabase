@@ -1,33 +1,6 @@
-import { BlobServiceClient, generateBlobSASQueryParameters, SASProtocol, BlobSASPermissions as Permissions, StorageSharedKeyCredential } from '@azure/storage-blob';
+import { supabaseAdmin } from './supabase';
 
-// サーバーサイドでのみ使用する関数
-function getBlobServiceClient() {
-  if (typeof window !== 'undefined') {
-    throw new Error('This function can only be used on the server side');
-  }
-
-  const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
-  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-
-  if (!accountName || !accountKey) {
-    throw new Error('Azure Storage credentials are not configured');
-  }
-
-  const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
-  return new BlobServiceClient(
-    `https://${accountName}.blob.core.windows.net`,
-    sharedKeyCredential
-  );
-}
-
-// コンテナクライアントの取得（サーバーサイド用）
-function getContainerClient(containerName: string) {
-  const blobServiceClient = getBlobServiceClient();
-  return blobServiceClient.getContainerClient(containerName);
-}
-
-// 既存のコンテナ名
-const CONTAINERS = {
+export const CONTAINERS = {
   UNIVERSITY_IMAGES: 'university-images',
   PROGRAMMING_VIDEOS: 'programming-videos',
   PROGRAMMING_THUMBNAILS: 'programming-thumbnails',
@@ -39,146 +12,77 @@ const CONTAINERS = {
   ENGLISH_MOVIES: 'english-movies',
 } as const;
 
-// SASトークンの生成（サーバーサイド用）
-export async function generateSasToken(containerName: string, blobName: string) {
-  if (typeof window !== 'undefined') {
-    throw new Error('This function can only be used on the server side');
-  }
+export async function generateSasToken(bucketName: string, fileName: string): Promise<string> {
+  const { data, error } = await supabaseAdmin!
+    .storage
+    .from(bucketName)
+    .createSignedUrl(fileName, 3600);
 
-  const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
-  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-
-  if (!accountName || !accountKey) {
-    throw new Error('Azure Storage credentials are not configured');
-  }
-
-  const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
-
-  const permissions = new Permissions();
-  permissions.read = true;
-
-  const startsOn = new Date();
-  const expiresOn = new Date(new Date().valueOf() + 3600 * 1000); // 1時間有効
-
-  const sasToken = generateBlobSASQueryParameters({
-    containerName,
-    blobName,
-    permissions,
-    startsOn,
-    expiresOn,
-    protocol: SASProtocol.Https,
-  }, sharedKeyCredential).toString();
-
-  return sasToken;
+  if (error) throw error;
+  return data.signedUrl;
 }
 
-// 動画URLにSASトークンを付与する関数
-export async function generateSasUrl(url: string) {
+export async function generateSasUrl(url: string): Promise<string> {
   try {
-    console.log('Generating SAS URL for:', url);
-    
-    // URLからコンテナ名とBLOB名を抽出
-    const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
-    const baseUrl = `https://${accountName}.blob.core.windows.net/`;
-    const urlWithCorrectDomain = url.replace(/^https:\/\/[^/]+\//, baseUrl);
-    const urlObj = new URL(urlWithCorrectDomain);
+    const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
-    const containerName = pathParts[0];
-    const blobName = decodeURIComponent(pathParts.slice(1).join('/'));
-    
-    console.log('Extracted parts:', {
-      originalUrl: url,
-      correctedUrl: urlWithCorrectDomain,
-      containerName,
-      blobName
-    });
-
-    // BlobClientを使用してSASトークンを生成
-    const containerClient = getContainerClient(containerName);
-    
-    // ファイル名の正規化とエンコード
-    const normalizedBlobName = blobName
-      .normalize('NFC')  // Unicode正規化
-      .replace(/\s+/g, ' '); // 連続する空白を1つに
-    const encodedBlobName = encodeURIComponent(normalizedBlobName).replace(/%2F/g, '/');
-    console.log('Encoded blob name:', encodedBlobName);
-    const blobClient = containerClient.getBlobClient(encodedBlobName);
-
-    const startsOn = new Date();
-    const expiresOn = new Date(new Date().valueOf() + 3600 * 1000);
-
-    const sasToken = await blobClient.generateSasUrl({
-      permissions: Permissions.parse("r"),
-      startsOn,
-      expiresOn,
-      protocol: SASProtocol.Https,
-    });
-
-    console.log('Generated SAS URL:', sasToken);
-    return sasToken;
-  } catch (error) {
-    console.error('Error generating SAS token:', error);
-    throw error;
-  }
-}
-
-// ファイルアップロード（サーバーサイド用）
-export async function uploadFile(containerName: string, file: Buffer, fileName: string, contentType: string): Promise<string> {
-  if (typeof window !== 'undefined') {
-    throw new Error('This function can only be used on the server side');
-  }
-
-  const containerClient = getContainerClient(containerName);
-  const blobName = `${Date.now()}-${fileName}`;
-  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-  
-  await blockBlobClient.uploadData(file, {
-    blobHTTPHeaders: { blobContentType: contentType }
-  });
-
-  // SASトークンを生成して返す
-  const sasToken = await generateSasToken(containerName, blobName);
-  return `${blockBlobClient.url}?${sasToken}`;
-}
-
-// ファイル削除（サーバーサイド用）
-export async function deleteFile(containerName: string, url: string): Promise<void> {
-  if (typeof window !== 'undefined') {
-    throw new Error('This function can only be used on the server side');
-  }
-
-  const blobName = url.split('/').pop()?.split('?')[0]; // SASトークンを除去
-  if (!blobName) throw new Error('Invalid blob URL');
-  
-  const containerClient = getContainerClient(containerName);
-  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-  await blockBlobClient.delete();
-}
-
-// コンテナの初期化（サーバーサイド用）
-export async function initializeStorageContainers() {
-  if (typeof window !== 'undefined') {
-    throw new Error('This function can only be used on the server side');
-  }
-
-  try {
-    const blobServiceClient = getBlobServiceClient();
-
-    // 各コンテナの初期化
-    for (const containerName of Object.values(CONTAINERS)) {
-      const containerClient = blobServiceClient.getContainerClient(containerName);
-      const exists = await containerClient.exists();
-      
-      if (!exists) {
-        await containerClient.create();
-      }
+    const objectIdx = pathParts.indexOf('object');
+    if (objectIdx >= 0 && pathParts[objectIdx + 1] === 'public') {
+      const bucketName = pathParts[objectIdx + 2];
+      const fileName = pathParts.slice(objectIdx + 3).join('/');
+      return generateSasToken(bucketName, decodeURIComponent(fileName));
     }
-
-    console.log('Storage containers initialized successfully');
+    const publicIdx = pathParts.indexOf('public');
+    if (publicIdx >= 0 && pathParts[publicIdx + 1]) {
+      const bucketName = pathParts[publicIdx + 1];
+      const fileName = pathParts.slice(publicIdx + 2).join('/');
+      return generateSasToken(bucketName, decodeURIComponent(fileName));
+    }
+    if (pathParts.length >= 2) {
+      const bucketName = pathParts[pathParts.length - 2];
+      const fileName = pathParts[pathParts.length - 1];
+      return generateSasToken(bucketName, decodeURIComponent(fileName));
+    }
+    throw new Error('Invalid storage URL format');
   } catch (error) {
-    console.error('Error initializing storage containers:', error);
+    console.error('Error generating signed URL:', error);
     throw error;
   }
 }
 
-export { CONTAINERS };
+export async function uploadFile(
+  bucketName: string,
+  file: Buffer,
+  fileName: string,
+  contentType: string
+): Promise<string> {
+  const safeFileName = `${Date.now()}-${fileName}`;
+  const { error } = await supabaseAdmin!
+    .storage
+    .from(bucketName)
+    .upload(safeFileName, file, {
+      contentType,
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabaseAdmin!
+    .storage
+    .from(bucketName)
+    .getPublicUrl(safeFileName);
+
+  return data.publicUrl;
+}
+
+export async function deleteFile(bucketName: string, url: string): Promise<void> {
+  const fileName = url.split('/').pop()?.split('?')[0];
+  if (!fileName) throw new Error('Invalid file URL');
+
+  const { error } = await supabaseAdmin!
+    .storage
+    .from(bucketName)
+    .remove([fileName]);
+
+  if (error) throw error;
+}

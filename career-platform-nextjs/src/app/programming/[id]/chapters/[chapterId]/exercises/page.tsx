@@ -433,7 +433,7 @@ export default function ExercisesPage() {
               onClick={runCode}
               disabled={selectedAnswers.length === 0}
               className={`px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 ${
-                selectedAnswer === null ? 'opacity-50 cursor-not-allowed' : ''
+                selectedAnswers.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
               回答を確認
@@ -458,7 +458,7 @@ export default function ExercisesPage() {
                   setCode('# コードを入力してください\n');
                 }
                 setOutput('');
-                setSelectedAnswer(null);
+                setSelectedAnswers([]);
                 setShowResult(false);
                 setIsCodeCorrect(null);
               }}

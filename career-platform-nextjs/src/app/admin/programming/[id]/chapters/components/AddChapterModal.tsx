@@ -125,7 +125,8 @@ export default function AddChapterModal({ isOpen, onClose, languageId }: AddChap
     value: string
   ) => {
     const newExercises = [...exercises];
-    (newExercises[exerciseIndex].testCases[testCaseIndex] as any)[field] = value;
+    const tc = newExercises[exerciseIndex]?.testCases?.[testCaseIndex];
+    if (tc) (tc as Record<string, string>)[field] = value;
     setExercises(newExercises);
   };
 
@@ -372,7 +373,7 @@ export default function AddChapterModal({ isOpen, onClose, languageId }: AddChap
                         解説（任意）
                       </label>
                       <textarea
-                        value={exercise.explanation || ''}
+                        value={(exercise as { explanation?: string }).explanation || ''}
                         onChange={(e) =>
                           updateExercise(exerciseIndex, 'explanation', e.target.value)
                         }
@@ -382,7 +383,8 @@ export default function AddChapterModal({ isOpen, onClose, languageId }: AddChap
                           const textarea = e.currentTarget;
                           const start = textarea.selectionStart;
                           const end = textarea.selectionEnd;
-                          const newValue = (exercise.explanation || '').substring(0, start) + pastedText + (exercise.explanation || '').substring(end);
+                          const expl = (exercise as { explanation?: string }).explanation || '';
+                          const newValue = expl.substring(0, start) + pastedText + expl.substring(end);
                           updateExercise(exerciseIndex, 'explanation', newValue);
                           // カーソル位置を調整
                           setTimeout(() => {

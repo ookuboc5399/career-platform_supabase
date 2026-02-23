@@ -28,6 +28,25 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// 大学情報の取得（単体）
+router.get('/:id', async (req, res, next) => {
+  try {
+    const university = await getUniversity(req.params.id);
+    if (!university) {
+      res.status(404).json({ error: 'University not found' });
+      return;
+    }
+    res.json({
+      ...university,
+      name: university.title,
+      website: university.websiteUrl,
+    });
+  } catch (error) {
+    console.error('Error loading university:', error);
+    next(error);
+  }
+});
+
 // 大学情報の更新
 router.put('/:id', async (req, res, next) => {
   try {

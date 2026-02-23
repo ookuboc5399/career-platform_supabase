@@ -1,53 +1,111 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CosmosClient } from '@azure/cosmos';
-
-const client = new CosmosClient({
-  endpoint: process.env.COSMOS_DB_ENDPOINT || '',
-  key: process.env.COSMOS_DB_KEY || ''
-});
-const database = client.database('career-platform');
-const container = database.container('certification-progress');
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/auth';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/certifications/progress - Start');
     const body = await request.json();
-    console.log('Request body:', body);
-
-    const { certificationId, questionId, selectedAnswer } = body;
-
-    // 問題データを取得して正解を確認
-    const questionsContainer = database.container('certification-questions');
-    const { resource: question } = await questionsContainer.item(questionId, questionId).read();
-    if (!question) {
-      return NextResponse.json(
-        { error: 'Question not found' },
-        { status: 404 }
-      );
-    }
-
-    const isCorrect = question.correctAnswers.includes(selectedAnswer);
-
-    // 進捗を記録
-    const id = `${certificationId}-${questionId}`;
-    const progress = {
-      id,
+    const {
       certificationId,
+      chapterId,
       questionId,
       selectedAnswer,
       isCorrect,
-      timestamp: new Date().toISOString(),
-    };
+      videoCompleted,
+    } = body;
 
-    console.log('Creating progress:', progress);
-    const { resource } = await container.items.upsert(progress);
-    console.log('Created progress:', resource);
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ?? 'anonymous';
 
-    return NextResponse.json(resource);
+    if (chapterId) {
+      const id = `${userId}-${certificationId}-${chapterId}`;
+
+      const { data: existing } = await supabaseAdmin!
+        .from('certification_progress')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      const now = new Date().toISOString();
+      const completedQuestions = existing?.completed_questions ?? [];
+
+      if (videoCompleted) {
+        const { data, error } = await supabaseAdmin!
+          .from('certification_progress')
+          .upsert({
+            id,
+            user_id: userId,
+            certification_id: certificationId,
+            chapter_id: chapterId,
+            video_completed: true,
+            completed_questions: completedQuestions,
+            last_accessed_at: now,
+            created_at: existing?.created_at ?? now,
+            updated_at: now,
+          });
+
+        if (error) throw error;
+        return NextResponse.json({ success: true });
+      }
+
+      if (questionId !== undefined && isCorrect !== undefined) {
+        const updated = Array.isArray(completedQuestions)
+          ? [...completedQuestions.filter((q: { questionId?: string }) => q.questionId !== questionId), { questionId, isCorrect }]
+          : [{ questionId, isCorrect }];
+
+        const { error } = await supabaseAdmin!
+          .from('certification_progress')
+          .upsert({
+            id,
+            user_id: userId,
+            certification_id: certificationId,
+            chapter_id: chapterId,
+            video_completed: existing?.video_completed ?? false,
+            completed_questions: updated,
+            last_accessed_at: now,
+            created_at: existing?.created_at ?? now,
+            updated_at: now,
+          });
+
+        if (error) throw error;
+        return NextResponse.json({ success: true });
+      }
+    }
+
+    if (questionId && selectedAnswer !== undefined) {
+      const questionsRes = await fetch(
+        `${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/api/certifications/${certificationId}/questions`
+      );
+      if (!questionsRes.ok) throw new Error('Failed to fetch questions');
+      const questions = await questionsRes.json();
+      const question = questions.find((q: { id: string }) => q.id === questionId);
+      const correct = question ? (question.correctAnswers ?? [question.correctAnswer]).includes(selectedAnswer) : false;
+
+      const progressRes = await fetch(
+        `${process.env.NEXT_PUBLIC_EXPRESS_API_URL}/api/certifications/${certificationId}/questions/answers`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            questionId,
+            correct,
+            selectedAnswer,
+          }),
+        }
+      );
+
+      if (!progressRes.ok) throw new Error('Failed to record answer');
+      const data = await progressRes.json();
+      return NextResponse.json(data);
+    }
+
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   } catch (error) {
-    console.error('Error creating progress:', error);
+    console.error('Error saving progress:', error);
     return NextResponse.json(
-      { error: 'Failed to create progress' },
+      { error: error instanceof Error ? error.message : 'Failed to save progress' },
       { status: 500 }
     );
   }
@@ -55,10 +113,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('GET /api/certifications/progress - Start');
     const url = new URL(request.url);
     const certificationId = url.searchParams.get('certificationId');
-    console.log('Certification ID:', certificationId);
+    const chapterId = url.searchParams.get('chapterId');
 
     if (!certificationId) {
       return NextResponse.json(
@@ -67,19 +124,34 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { resources } = await container.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.certificationId = @certificationId ORDER BY c.timestamp DESC',
-        parameters: [{ name: '@certificationId', value: certificationId }]
-      })
-      .fetchAll();
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id ?? 'anonymous';
 
-    console.log('Found progress:', resources);
-    return NextResponse.json(resources);
+    if (chapterId) {
+      const id = `${userId}-${certificationId}-${chapterId}`;
+      const { data, error } = await supabaseAdmin!
+        .from('certification_progress')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return NextResponse.json(data ?? []);
+    }
+
+    const { data, error } = await supabaseAdmin!
+      .from('certification_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('certification_id', certificationId)
+      .order('last_accessed_at', { ascending: false });
+
+    if (error) throw error;
+    return NextResponse.json(data ?? []);
   } catch (error) {
     console.error('Error fetching progress:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch progress' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch progress' },
       { status: 500 }
     );
   }

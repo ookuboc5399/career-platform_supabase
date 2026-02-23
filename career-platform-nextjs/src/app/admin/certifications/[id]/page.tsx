@@ -57,6 +57,7 @@ export default function CertificationQuestionsPage() {
     if (!certification) return;
 
     try {
+      const now = new Date().toISOString();
       const newQuestion: CertificationQuestion = {
         id: crypto.randomUUID(),
         certificationId,
@@ -71,7 +72,8 @@ export default function CertificationQuestionsPage() {
         year: '',
         category: '',
         mainCategory: '',
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       const updatedCertification = {
@@ -147,10 +149,10 @@ export default function CertificationQuestionsPage() {
               </div>
               <p className="mb-4">{question.question}</p>
               <div className="space-y-2 mb-4">
-                {question.choices.map((choice, choiceIndex) => (
-                  <div key={choice.id} className={`p-3 rounded-lg border ${choiceIndex === question.correctAnswer ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                {question.options?.map((choice, choiceIndex) => (
+                  <div key={choiceIndex} className={`p-3 rounded-lg border ${question.correctAnswers?.includes(choiceIndex) ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
                     {choice.text}
-                    {choiceIndex === question.correctAnswer && <span className="ml-2 text-green-600 text-sm">✓ 正解</span>}
+                    {question.correctAnswers?.includes(choiceIndex) && <span className="ml-2 text-green-600 text-sm">✓ 正解</span>}
                   </div>
                 ))}
               </div>

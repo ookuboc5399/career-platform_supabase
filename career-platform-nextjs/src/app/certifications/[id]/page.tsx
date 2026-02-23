@@ -94,7 +94,7 @@ export default async function CertificationPage({ params }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="relative h-64 md:h-full">
               <Image
-                src={certification.imageUrl}
+                src={certification.imageUrl || '/images/placeholder.svg'}
                 alt={certification.name}
                 fill
                 className="object-cover rounded-lg"

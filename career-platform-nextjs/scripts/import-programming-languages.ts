@@ -1,4 +1,25 @@
-const { createProgrammingLanguage } = require('../src/lib/cosmos-db');
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+async function createProgrammingLanguage(data: {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+}) {
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { error } = await supabase.from('programming_languages').upsert({
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    type: data.type,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
 
 const initialLanguages = [
   {

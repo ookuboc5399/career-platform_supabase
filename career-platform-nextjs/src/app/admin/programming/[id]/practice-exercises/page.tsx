@@ -161,9 +161,9 @@ export default function PracticeExercisesPage({ params }: { params: { id: string
               if (searchQuery.trim()) {
                 // 検索モード：全問題から検索
                 const query = searchQuery.toLowerCase();
-                displayExercises = allExercises.filter(ex => 
-                  ex.title.toLowerCase().includes(query) ||
-                  ex.description.toLowerCase().includes(query)
+                displayExercises = allExercises.filter(ex =>
+                  (ex.title ?? '').toLowerCase().includes(query) ||
+                  (ex.description ?? '').toLowerCase().includes(query)
                 );
               } else if (filterChapterId) {
                 // チャプターフィルターモード
