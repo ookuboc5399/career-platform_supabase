@@ -1,76 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { certificationQuestionsContainer, initializeDatabase } from '@/lib/cosmos-db';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (!certificationQuestionsContainer) await initializeDatabase();
-
-    const { id } = params;
+    const resolvedParams = params instanceof Promise ? await params : params;
     const body = await request.json();
-    const { 
-      question, 
-      questionImage, 
-      options, 
-      correctAnswers, 
-      explanation, 
-      explanationImages,
-      explanationTable,
-      year, 
-      category,
-      mainCategory 
-    } = body;
+    const { certificationId, ...questionData } = body;
 
-    // 既存の問題を取得
-    // First, get the question to get its certificationId
-    const { certificationId } = body;
-    console.log('Updating question with ID:', id, 'certificationId:', certificationId);
-    const { resources } = await certificationQuestionsContainer.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.id = @id AND c.certificationId = @certificationId',
-        parameters: [
-          { name: '@id', value: id },
-          { name: '@certificationId', value: certificationId }
-        ]
-      })
-      .fetchAll();
-    
-    console.log('Query results:', resources);
-    const existingQuestion = resources[0];
-    if (!existingQuestion) {
-      return NextResponse.json({ error: '問題が見つかりません' }, { status: 404 });
+    if (!certificationId) {
+      return NextResponse.json({ error: 'certificationId is required' }, { status: 400 });
     }
 
-    // 問題を更新（certificationIdとquestionNumberを保持）
-    const updatedQuestion = {
-      ...existingQuestion,
-      question,
-      questionImage: questionImage || null,
-      options: options.map((opt: { text: string; imageUrl: string | null }) => ({
-        text: opt.text,
-        imageUrl: opt.imageUrl
-      })),
-      correctAnswers,
-      explanation,
-      explanationImages,
-      ...(explanationTable && { explanationTable }),
-      year,
-      category,
-      mainCategory,
-      certificationId: existingQuestion.certificationId,
-      questionNumber: existingQuestion.questionNumber,
-      updatedAt: new Date().toISOString(),
-    };
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${certificationId}/questions/${resolvedParams.id}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...questionData, certificationId }),
+      }
+    );
 
-    // 問題を保存
-    console.log('Updating question with certificationId:', existingQuestion.certificationId);
-    const { resource: savedQuestion } = await certificationQuestionsContainer
-      .item(id, existingQuestion.certificationId)
-      .replace(updatedQuestion);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || '問題の更新に失敗しました' },
+        { status: response.status }
+      );
+    }
 
-    console.log('Successfully updated question');
+    const savedQuestion = await response.json();
     return NextResponse.json(savedQuestion);
   } catch (error) {
     console.error('Error updating question:', error);
@@ -80,30 +42,29 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (!certificationQuestionsContainer) await initializeDatabase();
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const url = new URL(request.url);
+    const certificationId = url.searchParams.get('certificationId');
 
-    const { id } = params;
-
-    // 既存の問題を取得
-    // First, get the question to get its certificationId
-    // First try to find the question by ID only
-    const { resources } = await certificationQuestionsContainer.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.id = @id',
-        parameters: [{ name: '@id', value: id }]
-      })
-      .fetchAll();
-    
-    const existingQuestion = resources[0];
-    if (!existingQuestion) {
-      return NextResponse.json({ error: '問題が見つかりません' }, { status: 404 });
+    if (!certificationId) {
+      return NextResponse.json({ error: 'certificationId is required as query parameter' }, { status: 400 });
     }
 
-    // 問題を削除
-    await certificationQuestionsContainer.item(id, existingQuestion.certificationId).delete();
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${certificationId}/questions/${resolvedParams.id}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || '問題の削除に失敗しました' },
+        { status: response.status }
+      );
+    }
 
     return NextResponse.json({ message: '問題を削除しました' });
   } catch (error) {

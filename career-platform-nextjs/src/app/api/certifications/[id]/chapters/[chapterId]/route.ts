@@ -1,39 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { certificationChaptersContainer, initializeDatabase } from '@/lib/cosmos-db';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
 
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string; chapterId: string } }
+  { params }: { params: Promise<{ id: string; chapterId: string }> | { id: string; chapterId: string } }
 ) {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
-
+    const resolvedParams = params instanceof Promise ? await params : params;
     const body = await request.json();
-    console.log('Updating chapter:', {
-      chapterId: context.params.chapterId,
-      certificationId: context.params.id,
-      body
-    });
 
-    const { resource } = await certificationChaptersContainer.item(context.params.chapterId, context.params.id).replace({
-      id: context.params.chapterId,
-      certificationId: context.params.id,
-      ...body,
-      updatedAt: new Date().toISOString()
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters/${resolvedParams.chapterId}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }
+    );
 
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to update chapter' },
+        { status: response.status }
+      );
+    }
+
+    const resource = await response.json();
     return NextResponse.json(resource);
   } catch (error) {
     console.error('Error updating chapter:', error);
-    console.error('Error details:', error);
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { error: 'Failed to update chapter', details: error.message },
-        { status: 500 }
-      );
-    }
     return NextResponse.json(
-      { error: 'Failed to update chapter', details: 'Unknown error' },
+      { error: 'Failed to update chapter', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -41,12 +40,24 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string; chapterId: string } }
+  { params }: { params: Promise<{ id: string; chapterId: string }> | { id: string; chapterId: string } }
 ) {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
+    const resolvedParams = params instanceof Promise ? await params : params;
 
-    await certificationChaptersContainer.item(context.params.chapterId, context.params.id).delete();
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters/${resolvedParams.chapterId}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to delete chapter' },
+        { status: response.status }
+      );
+    }
+
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting chapter:', error);

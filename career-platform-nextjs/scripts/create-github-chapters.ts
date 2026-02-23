@@ -1,8 +1,6 @@
 const { createProgrammingChapter } = require('../src/lib/programming-data');
-const dotenv = require('dotenv');
-
 // 環境変数を読み込む
-dotenv.config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.local' });
 
 const githubChapters = [
   // GitHub Foundations - 3チャプター

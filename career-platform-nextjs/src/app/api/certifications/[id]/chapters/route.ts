@@ -1,33 +1,30 @@
 import { NextResponse } from 'next/server';
-import {
-  getCertificationChapters,
-  createCertificationChapter,
-  certificationChaptersContainer,
-  initializeDatabase,
-} from '@/lib/cosmos-db';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:4000';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    console.log('GET /api/certifications/[id]/chapters - Start');
     const resolvedParams = params instanceof Promise ? await params : params;
-    console.log('Certification ID:', resolvedParams.id);
 
-    const chapters = await getCertificationChapters(resolvedParams.id);
-    console.log('Retrieved chapters:', chapters);
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters`
+    );
 
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to fetch chapters' },
+        { status: response.status }
+      );
+    }
+
+    const chapters = await response.json();
     return NextResponse.json(chapters || []);
   } catch (error) {
     console.error('Error fetching chapters:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-    }
     return NextResponse.json(
       { error: 'Failed to fetch chapters', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -40,51 +37,43 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    console.log('POST /api/certifications/[id]/chapters - Start');
     const resolvedParams = params instanceof Promise ? await params : params;
-    console.log('Certification ID:', resolvedParams.id);
-
     const body = await request.json();
-    console.log('Request body:', body);
     const { title, content, order, videoUrl, questions, webText } = body;
 
-    console.log('Creating chapter with data:', {
-      certificationId: resolvedParams.id,
-      title,
-      content,
-      order,
-      videoUrl,
-      questions,
-      webText,
-    });
-
     const chapterData = {
-      certificationId: resolvedParams.id,
       title,
-      description: content,
-      content,
-      order,
-      videoUrl,
-      questions,
-      webText,
-      thumbnailUrl: '',
+      description: content || title,
+      content: content || '',
+      order: order ?? 0,
+      videoUrl: videoUrl || '',
+      questions: questions || [],
+      webText: webText || '',
+      status: 'draft',
       duration: '',
     };
-    
-    console.log('Creating chapter with data:', chapterData);
-    const chapter = await createCertificationChapter(chapterData);
 
-    console.log('Created chapter:', chapter);
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chapterData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to create chapter' },
+        { status: response.status }
+      );
+    }
+
+    const chapter = await response.json();
     return NextResponse.json(chapter);
   } catch (error) {
     console.error('Error creating chapter:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-    }
     return NextResponse.json(
       { error: 'Failed to create chapter', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -97,14 +86,18 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
     const resolvedParams = params instanceof Promise ? await params : params;
     const body = await request.json();
-    const { id, title, content, order, videoUrl, questions, webText } = body;
+    const { id: chapterId, title, content, order, videoUrl, questions, webText } = body;
 
-    const { resource } = await certificationChaptersContainer.item(id, resolvedParams.id).replace({
-      id,
-      certificationId: resolvedParams.id,
+    if (!chapterId) {
+      return NextResponse.json(
+        { error: 'Chapter ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const updateData = {
       title,
       description: content,
       content,
@@ -112,10 +105,26 @@ export async function PUT(
       videoUrl,
       questions,
       webText,
-      thumbnailUrl: '',
-      duration: '',
-    });
+    };
 
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters/${chapterId}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to update chapter' },
+        { status: response.status }
+      );
+    }
+
+    const resource = await response.json();
     return NextResponse.json(resource);
   } catch (error) {
     console.error('Error updating chapter:', error);
@@ -131,7 +140,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (!certificationChaptersContainer) await initializeDatabase();
     const resolvedParams = params instanceof Promise ? await params : params;
     const url = new URL(request.url);
     const chapterId = url.searchParams.get('chapterId');
@@ -143,7 +151,19 @@ export async function DELETE(
       );
     }
 
-    await certificationChaptersContainer.item(chapterId, resolvedParams.id).delete();
+    const response = await fetch(
+      `${API_BASE_URL}/api/certifications/${resolvedParams.id}/chapters/${chapterId}`,
+      { method: 'DELETE' }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error || 'Failed to delete chapter' },
+        { status: response.status }
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting chapter:', error);

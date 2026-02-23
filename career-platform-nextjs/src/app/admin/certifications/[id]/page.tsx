@@ -59,7 +59,19 @@ export default function CertificationQuestionsPage() {
     try {
       const newQuestion: CertificationQuestion = {
         id: crypto.randomUUID(),
-        ...formData,
+        certificationId,
+        questionNumber: (certification.questions?.length ?? 0) + 1,
+        question: formData.question,
+        questionImage: null,
+        questionType: 'normal',
+        options: formData.choices.map(c => ({ ...c, imageUrl: null })),
+        correctAnswers: [formData.correctAnswer],
+        explanation: formData.explanation,
+        explanationImages: [],
+        year: '',
+        category: '',
+        mainCategory: '',
+        createdAt: new Date().toISOString(),
       };
 
       const updatedCertification = {

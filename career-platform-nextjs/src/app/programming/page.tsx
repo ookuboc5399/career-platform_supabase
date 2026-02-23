@@ -9,7 +9,11 @@ interface Course {
   level: string;
   chapters: number;
   exercises: number;
-  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network';
+  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'iaas' | 'network';
+  /** 外部リンクの場合、このURLへ遷移（新規タブで開く） */
+  externalUrl?: string;
+  /** 外部リンク時のボタン文言（未指定時は「学習サイトへ」） */
+  externalLabel?: string;
 }
 
 const courses: Course[] = [
@@ -163,6 +167,99 @@ const courses: Course[] = [
     type: 'framework',
   },
   {
+    id: 'aws',
+    title: 'AWS入門',
+    description: '世界最大のクラウドプラットフォーム、Amazon Web Servicesの基礎から学びます。',
+    icon: '☁️',
+    features: [
+      'EC2・S3などの主要サービス',
+      'インフラの構築と管理',
+      'サーバーレスアーキテクチャ',
+    ],
+    level: '初級',
+    chapters: 0,
+    exercises: 0,
+    type: 'cloud',
+    externalUrl: 'https://aws.amazon.com/jp/training/',
+  },
+  {
+    id: 'azure',
+    title: 'Azure入門',
+    description: 'Microsoftが提供するクラウドプラットフォーム、Azureの基礎から学びます。',
+    icon: '🔷',
+    features: [
+      '仮想マシンとストレージ',
+      'Azureの主要サービス',
+      'ハイブリッドクラウド構成',
+    ],
+    level: '初級',
+    chapters: 0,
+    exercises: 0,
+    type: 'cloud',
+    externalUrl: 'https://learn.microsoft.com/ja-jp/training/',
+  },
+  {
+    id: 'gcp',
+    title: 'GCP入門',
+    description: 'Googleが提供するクラウドプラットフォーム、Google Cloudの基礎から学びます。',
+    icon: '🌐',
+    features: [
+      'Compute Engine・Cloud Storage',
+      'BigQueryとデータ分析',
+      'Kubernetes Engine (GKE)',
+    ],
+    level: '初級',
+    chapters: 0,
+    exercises: 0,
+    type: 'cloud',
+    externalUrl: 'https://cloud.google.com/learn?hl=ja',
+  },
+  {
+    id: 'ansible',
+    title: 'Ansible入門',
+    description: 'インフラの構成管理を自動化するAnsibleの基礎から学びます。',
+    icon: '⚙️',
+    features: [
+      'Playbookの作成と実行',
+      'インベントリと変数の管理',
+      'ロールによる再利用可能な構成',
+    ],
+    level: '初級',
+    chapters: 6,
+    exercises: 12,
+    type: 'iaas',
+  },
+  {
+    id: 'serverspec',
+    title: 'Serverspec入門',
+    description: 'インフラの状態をテストするServerspecの基礎から学びます。',
+    icon: '✅',
+    features: [
+      'RSpecによるサーバー仕様の記述',
+      'リソースタイプの活用',
+      'CI/CDとの連携',
+    ],
+    level: '初級',
+    chapters: 5,
+    exercises: 10,
+    type: 'iaas',
+  },
+  {
+    id: 'terraform',
+    title: 'Terraform入門',
+    description: 'インフラをコードで管理するTerraformの基礎から学びます。',
+    icon: '🏗️',
+    features: [
+      'HCLによるインフラ定義',
+      'AWS・Azure・GCPへのプロビジョニング',
+      'ステート管理とモジュール化',
+    ],
+    level: '初級',
+    chapters: 7,
+    exercises: 15,
+    type: 'iaas',
+  },
+  {
     id: 'snowflake',
     title: 'Snowflake入門',
     description: 'クラウドベースのデータウェアハウスプラットフォーム、Snowflakeの基礎から学びます。',
@@ -200,6 +297,21 @@ const courses: Course[] = [
     type: 'others',
   },
   {
+    id: 'antigravity',
+    title: 'Google Antigravity',
+    description: 'この Codelab では、IDE をエージェント ファーストの時代へと進化させるエージェント型開発プラットフォームである Google Antigravity（以降、このドキュメントでは Antigravity と表記）について説明します。行を自動補完するだけの標準的なコーディング アシスタントとは異なり、Antigravity には、計画、コーディング、ウェブの閲覧まで行える自律型エージェントを管理するための「ミッション コントロール」が用意されています。',
+    icon: '🚀',
+    features: [
+      'Antigravity のインストールと構成',
+      'エージェント マネージャー、エディタ、ブラウザなど、Antigravity の主要なコンセプト',
+      '独自のルールとワークフローによる Antigravity のカスタマイズとセキュリティに関する考慮事項',
+    ],
+    level: '初級',
+    chapters: 12,
+    exercises: 0,
+    type: 'others',
+  },
+  {
     id: 'jira',
     title: 'Jira入門',
     description: 'プロジェクト管理と課題追跡のための強力なツール、Jiraの使い方を基礎から実践的に学びます。',
@@ -216,9 +328,17 @@ const courses: Course[] = [
   },
 ];
 
-const CourseCard = ({ course }: { course: Course }) => (
-  <Link
-    href={`/programming/${course.id}`}
+const CourseCard = ({ course }: { course: Course }) => {
+  const href = course.externalUrl ?? `/programming/${course.id}`;
+  const isExternal = !!course.externalUrl;
+  const Wrapper = isExternal ? 'a' : Link;
+  const linkProps = isExternal
+    ? { href, target: '_blank', rel: 'noopener noreferrer' }
+    : { href };
+
+  return (
+  <Wrapper
+    {...linkProps}
     key={course.id}
     className="block"
   >
@@ -259,9 +379,13 @@ const CourseCard = ({ course }: { course: Course }) => (
 
         <div className="mt-8">
           <div className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700">
-            コースを始める
+            {course.externalUrl ? (course.externalLabel ?? '学習サイトへ') : 'コースを始める'}
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              {course.externalUrl ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              )}
             </svg>
           </div>
         </div>
@@ -284,8 +408,9 @@ const CourseCard = ({ course }: { course: Course }) => (
         </div>
       </div>
     </div>
-  </Link>
-);
+  </Wrapper>
+  );
+};
 
 export default function ProgrammingPage() {
   return (
@@ -376,6 +501,17 @@ export default function ProgrammingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {courses
               .filter(course => course.type === 'cloud')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">IaaS</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter(course => course.type === 'iaas')
               .map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}

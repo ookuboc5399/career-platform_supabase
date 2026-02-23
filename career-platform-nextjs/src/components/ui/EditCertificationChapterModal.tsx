@@ -5,6 +5,12 @@ import { Button } from './button';
 import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from './accordion';
 import { CertificationChapter, CertificationQuestion } from '@/types/api';
 
 interface EditCertificationChapterModalProps {
@@ -120,13 +126,20 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
     });
   };
 
+  const handleCorrectAnswerToggle = (questionIndex: number, optionIndex: number) => {
+    const newQuestions = [...questions];
+    const current = newQuestions[questionIndex].correctAnswers;
+    const newCorrect = current.includes(optionIndex)
+      ? current.filter(i => i !== optionIndex)
+      : [...current, optionIndex];
+    newQuestions[questionIndex].correctAnswers = newCorrect;
+    setQuestions(newQuestions);
+  };
+
   const handleQuestionChange = (index: number, field: string, value: any) => {
     const newQuestions = [...questions];
     if (field === 'options') {
-      newQuestions[index].options[value.index] = { text: value.text };
-    } else if (field === 'correctAnswers') {
-      const answers = value.split(',').map((num: string) => parseInt(num.trim())).filter((num: number) => !isNaN(num));
-      newQuestions[index].correctAnswers = answers;
+      newQuestions[index].options[value.index] = { ...newQuestions[index].options[value.index], text: value.text };
     } else if (field === 'explanation') {
       newQuestions[index].explanation = value;
     } else if (field === 'explanationTable') {
@@ -141,7 +154,7 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
     setQuestions([...questions, {
       id: Date.now().toString(),
       question: '',
-      options: Array(5).fill('').map(() => ({ text: '' })),
+      options: [{ text: '' }, { text: '' }],
       correctAnswers: [],
       explanation: '',
       explanationImages: [],
@@ -150,6 +163,23 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
         rows: [['', '']],
       },
     }]);
+  };
+
+  const addOption = (questionIndex: number) => {
+    const newQuestions = [...questions];
+    newQuestions[questionIndex].options.push({ text: '' });
+    setQuestions(newQuestions);
+  };
+
+  const removeOption = (questionIndex: number, optionIndex: number) => {
+    const newQuestions = [...questions];
+    const opts = newQuestions[questionIndex].options;
+    if (opts.length <= 2) return;
+    opts.splice(optionIndex, 1);
+    newQuestions[questionIndex].correctAnswers = newQuestions[questionIndex].correctAnswers
+      .map((idx: number) => (idx > optionIndex ? idx - 1 : idx === optionIndex ? -1 : idx))
+      .filter((idx: number) => idx >= 0);
+    setQuestions(newQuestions);
   };
 
   const removeQuestion = (index: number) => {
@@ -246,23 +276,33 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
             <label className="block text-sm font-medium text-gray-700 mb-2">
               練習問題
             </label>
-            <div className="space-y-6">
+            <Accordion type="multiple" defaultValue={[]} className="space-y-2">
               {questions.map((question, questionIndex) => (
-                <div key={question.id} className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium">問題 {questionIndex + 1}</h3>
+                <AccordionItem
+                  key={question.id}
+                  value={`question-${questionIndex}`}
+                  className="border rounded-lg px-4 data-[state=open]:pb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <AccordionTrigger className="flex-1 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      問題 {questionIndex + 1}
+                    </AccordionTrigger>
                     {questions.length > 1 && (
                       <Button
                         type="button"
-                        onClick={() => removeQuestion(questionIndex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeQuestion(questionIndex);
+                        }}
                         variant="destructive"
+                        size="sm"
                       >
                         削除
                       </Button>
                     )}
                   </div>
-
-                  <div className="space-y-4">
+                  <AccordionContent>
+                  <div className="space-y-4 pt-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         問題文
@@ -275,33 +315,55 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        選択肢
-                      </label>
-                      {question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="mb-2">
-                          <input
-                            type="text"
-                            value={option.text}
-                            onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
-                            placeholder={`選択肢 ${optionIndex + 1}`}
-                            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        正解の選択肢番号（カンマ区切りで複数選択可）
-                      </label>
-                      <input
-                        type="text"
-                        value={question.correctAnswers.join(', ')}
-                        onChange={(e) => handleQuestionChange(questionIndex, 'correctAnswers', e.target.value)}
-                        placeholder="例: 1, 3"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          選択肢（最低2つ必要）
+                        </label>
+                        <Button
+                          type="button"
+                          onClick={() => addOption(questionIndex)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          選択肢を追加
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={question.correctAnswers.includes(optionIndex)}
+                              onChange={() => handleCorrectAnswerToggle(questionIndex, optionIndex)}
+                              className="w-4 h-4 text-blue-600 shrink-0"
+                            />
+                            <span className="w-6 text-sm font-medium text-gray-700 shrink-0">
+                              {String.fromCharCode(65 + optionIndex)}.
+                            </span>
+                            <input
+                              type="text"
+                              value={option.text}
+                              onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
+                              placeholder={`選択肢 ${String.fromCharCode(65 + optionIndex)}`}
+                              className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {question.options.length > 2 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeOption(questionIndex, optionIndex)}
+                                variant="destructive"
+                                size="sm"
+                                className="shrink-0"
+                              >
+                                削除
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        ※ 正解の選択肢をチェックボックスで選択してください（複数選択可）
+                      </p>
                     </div>
 
                     <div>
@@ -378,7 +440,8 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
                       </Button>
                     </div>
                   </div>
-                </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
 
               <Button
@@ -389,7 +452,7 @@ export function EditCertificationChapterModal({ isOpen, onClose, onSave, chapter
               >
                 問題を追加
               </Button>
-            </div>
+            </Accordion>
           </div>
 
           <div>

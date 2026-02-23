@@ -206,7 +206,6 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
       category,
       mainCategory,
       certificationId: question.certificationId,
-      questionNumber: question.questionNumber,
       ...(hasTable && {
         explanationTable: {
           headers: tableHeaders.filter(h => h.trim() !== ''),

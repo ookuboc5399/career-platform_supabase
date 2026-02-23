@@ -5,8 +5,14 @@ import { Button } from './button';
 import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from './accordion';
 import { processGoogleDriveImages, ChapterContent } from '@/lib/image-processor';
-import { CertificationChapter } from '@/types/api';
+import { CertificationChapter, CertificationQuestion } from '@/types/api';
 
 interface CreateChapterModalProps {
   isOpen: boolean;
@@ -16,6 +22,29 @@ interface CreateChapterModalProps {
 }
 
 type Question = ChapterContent['questions'][0];
+
+/** ChapterContent形式のquestionsをCertificationQuestion形式に変換 */
+function formatQuestionsForApi(questionsData: Question[]): CertificationQuestion[] {
+  return questionsData
+    .filter(q => q.question.trim() !== '' && q.options.some(opt => String(opt).trim() !== ''))
+    .map((q, index) => ({
+      id: `practice-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`,
+      certificationId: '',
+      questionNumber: index + 1,
+      question: q.question,
+      questionImage: null,
+      questionType: 'normal' as const,
+      options: q.options.map(text => ({ text: String(text), imageUrl: null })),
+      correctAnswers: q.correctAnswers,
+      explanation: q.explanation,
+      explanationImages: q.explanationImages || [],
+      year: new Date().getFullYear().toString(),
+      category: '',
+      mainCategory: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+}
 
 const defaultFolderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID;
 
@@ -28,7 +57,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
   const [webText, setWebText] = useState('');
   const [questions, setQuestions] = useState<Question[]>([{
     question: '',
-    options: ['', '', '', '', ''],
+    options: ['', ''],
     correctAnswers: [],
     explanation: '',
     explanationImages: [],
@@ -51,7 +80,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     setWebText('');
     setQuestions([{
       question: '',
-      options: ['', '', '', '', ''],
+      options: ['', ''],
       correctAnswers: [],
       explanation: '',
       explanationImages: [],
@@ -85,7 +114,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
       order,
       status: 'draft',
       content: webText,
-      questions: [],  // 問題は別のエンドポイントで管理する
+      questions: formatQuestionsForApi(questions),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -142,7 +171,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
         order: currentMaxOrder + index + 1,
         status: 'draft',
         content: chapter.webText,
-        questions: [],
+        questions: formatQuestionsForApi(chapter.questions),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -151,13 +180,20 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
     resetForm();
   };
 
+  const handleCorrectAnswerToggle = (questionIndex: number, optionIndex: number) => {
+    const newQuestions = [...questions];
+    const current = newQuestions[questionIndex].correctAnswers;
+    const newCorrect = current.includes(optionIndex)
+      ? current.filter(i => i !== optionIndex)
+      : [...current, optionIndex];
+    newQuestions[questionIndex].correctAnswers = newCorrect;
+    setQuestions(newQuestions);
+  };
+
   const handleQuestionChange = (index: number, field: string, value: any) => {
     const newQuestions = [...questions];
     if (field === 'options') {
       newQuestions[index].options[value.index] = value.text;
-    } else if (field === 'correctAnswers') {
-      const answers = value.split(',').map((num: string) => parseInt(num.trim())).filter((num: number) => !isNaN(num));
-      newQuestions[index].correctAnswers = answers;
     } else if (field === 'explanation') {
       newQuestions[index].explanation = value;
     } else if (field === 'explanationTable') {
@@ -171,7 +207,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
   const addQuestion = () => {
     setQuestions([...questions, {
       question: '',
-      options: ['', '', '', '', ''],
+      options: ['', ''],
       correctAnswers: [],
       explanation: '',
       explanationImages: [],
@@ -180,6 +216,24 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
         rows: [['', '']],
       },
     }]);
+  };
+
+  const addOption = (questionIndex: number) => {
+    const newQuestions = [...questions];
+    newQuestions[questionIndex].options.push('');
+    setQuestions(newQuestions);
+  };
+
+  const removeOption = (questionIndex: number, optionIndex: number) => {
+    const newQuestions = [...questions];
+    const opts = newQuestions[questionIndex].options;
+    if (opts.length <= 2) return;
+    opts.splice(optionIndex, 1);
+    // 正解のインデックスを調整（削除した選択肢より後ろのインデックスを1つ減らす）
+    newQuestions[questionIndex].correctAnswers = newQuestions[questionIndex].correctAnswers
+      .map((idx: number) => (idx > optionIndex ? idx - 1 : idx === optionIndex ? -1 : idx))
+      .filter((idx: number) => idx >= 0);
+    setQuestions(newQuestions);
   };
 
   const removeQuestion = (index: number) => {
@@ -303,23 +357,33 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
             <label className="block text-sm font-medium text-gray-700 mb-2">
               練習問題
             </label>
-            <div className="space-y-6">
+            <Accordion type="multiple" defaultValue={[]} className="space-y-2">
               {questions.map((question, questionIndex) => (
-                <div key={questionIndex} className="p-4 border rounded-lg">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium">問題 {questionIndex + 1}</h3>
+                <AccordionItem
+                  key={questionIndex}
+                  value={`question-${questionIndex}`}
+                  className="border rounded-lg px-4 data-[state=open]:pb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <AccordionTrigger className="flex-1 py-3 hover:no-underline [&[data-state=open]>svg]:rotate-180">
+                      問題 {questionIndex + 1}
+                    </AccordionTrigger>
                     {questions.length > 1 && (
                       <Button
                         type="button"
-                        onClick={() => removeQuestion(questionIndex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeQuestion(questionIndex);
+                        }}
                         variant="destructive"
+                        size="sm"
                       >
                         削除
                       </Button>
                     )}
                   </div>
-
-                  <div className="space-y-4">
+                  <AccordionContent>
+                  <div className="space-y-4 pt-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         問題文
@@ -332,34 +396,55 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        選択肢
-                      </label>
-                      {question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="mb-2">
-                          <input
-                            type="text"
-                            value={option}
-                            onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
-                            placeholder={`選択肢 ${optionIndex + 1}`}
-                            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        正解の選択肢番号（カンマ区切りで複数選択可）
-                      </label>
-                      <input
-                        type="text"
-                        value={question.correctAnswers.join(', ')}
-                        onChange={(e) => handleQuestionChange(questionIndex, 'correctAnswers', e.target.value)}
-                        placeholder="例: 1, 3"
-                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          選択肢（最低2つ必要）
+                        </label>
+                        <Button
+                          type="button"
+                          onClick={() => addOption(questionIndex)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          選択肢を追加
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={question.correctAnswers.includes(optionIndex)}
+                              onChange={() => handleCorrectAnswerToggle(questionIndex, optionIndex)}
+                              className="w-4 h-4 text-blue-600 shrink-0"
+                            />
+                            <span className="w-6 text-sm font-medium text-gray-700 shrink-0">
+                              {String.fromCharCode(65 + optionIndex)}.
+                            </span>
+                            <input
+                              type="text"
+                              value={option}
+                              onChange={(e) => handleQuestionChange(questionIndex, 'options', { index: optionIndex, text: e.target.value })}
+                              placeholder={`選択肢 ${String.fromCharCode(65 + optionIndex)}`}
+                              className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {question.options.length > 2 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeOption(questionIndex, optionIndex)}
+                                variant="destructive"
+                                size="sm"
+                                className="shrink-0"
+                              >
+                                削除
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        ※ 正解の選択肢をチェックボックスで選択してください（複数選択可）
+                      </p>
                     </div>
 
                     <div>
@@ -436,7 +521,8 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
                       </Button>
                     </div>
                   </div>
-                </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
 
               <Button
@@ -447,7 +533,7 @@ export function CreateChapterModal({ isOpen, onClose, onSave, currentMaxOrder }:
               >
                 問題を追加
               </Button>
-            </div>
+            </Accordion>
           </div>
 
           <div>

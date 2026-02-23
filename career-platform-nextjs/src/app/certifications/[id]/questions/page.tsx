@@ -54,7 +54,9 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) setUserId(user.id);
-      } catch {}
+      } catch {
+        // 認証取得失敗時は未ログインとして続行
+      }
 
       await fetchQuestions();
 

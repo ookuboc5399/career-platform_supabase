@@ -1,10 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
 const path = require('path');
 
 // 環境変数を読み込む（.env.local または .env）
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
-dotenv.config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || '';
