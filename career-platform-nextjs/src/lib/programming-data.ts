@@ -81,9 +81,10 @@ export async function getProgrammingChapters(languageId: string) {
   }
 
   if (data && data.length > 0) {
-    return data.map(chapter => ({
+    const formatChapter = (chapter: any) => ({
       id: chapter.id,
       languageId: chapter.language_id,
+      parentId: chapter.parent_id || null,
       title: chapter.title,
       description: chapter.description,
       videoUrl: chapter.video_url,
@@ -92,9 +93,40 @@ export async function getProgrammingChapters(languageId: string) {
       order: chapter.order,
       status: chapter.status,
       exercises: chapter.exercises || [],
+      slideUrl: chapter.slide_url || null,
+      pdfUrl: chapter.pdf_url || null,
       createdAt: chapter.created_at,
       updatedAt: chapter.updated_at,
-    }));
+    });
+    const all = data.map(formatChapter);
+    // 任意の深さの親子をツリー化（従来は topLevel 直下の1段のみで、孫が落ちていた）
+    const byId = new Map<string, ReturnType<typeof formatChapter> & { subChapters: typeof all }>();
+    for (const ch of all) {
+      byId.set(ch.id, { ...ch, subChapters: [] });
+    }
+    for (const ch of all) {
+      if (!ch.parentId) continue;
+      const parent = byId.get(ch.parentId);
+      const node = byId.get(ch.id);
+      if (parent && node) {
+        parent.subChapters.push(node);
+      }
+    }
+    function sortRecursive(node: { subChapters: typeof all }) {
+      if (node.subChapters?.length) {
+        node.subChapters.sort((a, b) => a.order - b.order);
+        node.subChapters.forEach(sortRecursive);
+      }
+    }
+    const roots = all
+      .filter((ch) => {
+        if (!ch.parentId) return true;
+        if (!byId.has(ch.parentId)) return true;
+        return false;
+      })
+      .map((ch) => byId.get(ch.id)!);
+    roots.forEach(sortRecursive);
+    return roots;
   }
 
   // Supabaseにデータがない場合はダミーデータを返す
@@ -105,6 +137,7 @@ export async function getProgrammingChapters(languageId: string) {
 
 export async function createProgrammingChapter(chapter: {
   languageId: string;
+  parentId?: string | null;
   title: string;
   description: string;
   videoUrl?: string;
@@ -122,6 +155,7 @@ export async function createProgrammingChapter(chapter: {
     .insert({
       id,
       language_id: chapter.languageId,
+      parent_id: chapter.parentId || null,
       title: chapter.title,
       description: chapter.description,
       video_url: chapter.videoUrl || '',
@@ -144,6 +178,7 @@ export async function createProgrammingChapter(chapter: {
   return {
     id: data.id,
     languageId: data.language_id,
+    parentId: data.parent_id || null,
     title: data.title,
     description: data.description,
     videoUrl: data.video_url,

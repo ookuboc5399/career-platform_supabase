@@ -6,6 +6,12 @@ import { mockCertifications } from '@/data/mock-certifications';
 
 export const dynamic = 'force-dynamic';
 
+const CATEGORY_IMAGE_MAP: Record<string, string> = {
+  finance: '/images/finance.svg',
+  construction: '/images/construction.svg',
+  education: '/images/student.svg',
+};
+
 function getImageSrc(certification: Certification): string {
   if (certification.imageUrl) {
     return certification.imageUrl;
@@ -13,7 +19,7 @@ function getImageSrc(certification: Certification): string {
   if (certification.image?.data) {
     return `data:${certification.image.contentType};base64,${certification.image.data}`;
   }
-  return `/images/${certification.category}.svg`;
+  return CATEGORY_IMAGE_MAP[certification.category] ?? '/images/robot.svg';
 }
 
 export default async function CertificationsPage() {

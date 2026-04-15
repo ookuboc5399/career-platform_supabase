@@ -7,7 +7,9 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "import:universities": "ts-node src/scripts/import-universities-from-sheet.ts"
+    "import:universities": "ts-node src/scripts/import-universities-from-sheet.ts",
+    "backup": "ts-node src/scripts/backup-db-json.ts",
+    "db:add-certification-questions-fk": "ts-node src/scripts/add-certification-questions-fk.ts"
   },
   "keywords": [],
   "author": "",

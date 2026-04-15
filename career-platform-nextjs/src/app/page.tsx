@@ -28,7 +28,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#E8F9FD]">
+    <div className="min-h-screen bg-[#E8F9FD] dark:bg-gray-950">
       {/* Decorative elements */}
       <div className="absolute top-10 left-10 float">
         <div className="w-20 h-20 bg-[#4CC9F0] rounded-full opacity-20"></div>
@@ -53,7 +53,7 @@ export default function HomePage() {
           <h1 className="text-6xl font-bold gradient-text mb-6">
             キャリアプラットフォーム
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-xl text-gray-600 dark:text-gray-300">
             あなたの成長とスキルアップを総合的にサポートするプラットフォーム
           </p>
         </div>
@@ -114,7 +114,7 @@ export default function HomePage() {
         <div className="mt-auto py-8 text-center">
           <Link
             href="/contact"
-            className="text-blue-600 hover:text-blue-800 transition-colors"
+            className="text-blue-600 transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           >
             お問い合わせ
           </Link>

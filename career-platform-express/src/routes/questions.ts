@@ -28,8 +28,14 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
       category: category as string,
     });
 
-    // フロントエンド形式に変換（choices → options, correctAnswer → correctAnswers配列）
-    const formattedQuestions = questions.map(q => ({
+    // 資格IDの整合性チェック（別資格の問題が混入しないよう防御）
+    const filteredQuestions = questions.filter(q => q.certificationId === certificationId);
+    if (filteredQuestions.length !== questions.length) {
+      console.warn(`[search] certification_id mismatch: requested=${certificationId}, filtered out ${questions.length - filteredQuestions.length} questions`);
+    }
+
+    // フロントエンド形式に変換（choices → options, correctAnswer → correctAnswers配列, explanationImages）
+    const formattedQuestions = filteredQuestions.map(q => ({
       ...q,
       options: (q.choices || []).map(choice => ({
         id: choice.id,
@@ -37,7 +43,8 @@ router.get('/search', async (req: Request, res: Response): Promise<void> => {
         imageUrl: choice.imageUrl || null,
       })),
       correctAnswers: [q.correctAnswer],
-      questionNumber: q.questionNumber || 0, // 問題番号を返す（なければ0）
+      questionNumber: q.questionNumber || 0,
+      explanationImages: q.explanationImages || (q.explanationImage ? [q.explanationImage] : []),
     }));
 
     res.json(formattedQuestions);
@@ -57,9 +64,15 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const questions = await getCertificationQuestions(certificationId);
-    
-    // フロントエンド形式に変換（choices → options, correctAnswer → correctAnswers配列）
-    const formattedQuestions = questions.map(q => ({
+
+    // 資格IDの整合性チェック（別資格の問題が混入しないよう防御）
+    const filteredQuestions = questions.filter(q => q.certificationId === certificationId);
+    if (filteredQuestions.length !== questions.length) {
+      console.warn(`[getQuestions] certification_id mismatch: requested=${certificationId}, filtered out ${questions.length - filteredQuestions.length} questions`);
+    }
+
+    // フロントエンド形式に変換（choices → options, correctAnswer → correctAnswers配列, explanationImages）
+    const formattedQuestions = filteredQuestions.map(q => ({
       ...q,
       options: (q.choices || []).map(choice => ({
         id: choice.id,
@@ -67,7 +80,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         imageUrl: choice.imageUrl || null,
       })),
       correctAnswers: [q.correctAnswer],
-      questionNumber: q.questionNumber || 0, // 問題番号を返す（なければ0）
+      questionNumber: q.questionNumber || 0,
+      explanationImages: q.explanationImages || (q.explanationImage ? [q.explanationImage] : []),
     }));
     
     res.json(formattedQuestions);
@@ -110,7 +124,11 @@ router.post('/', express.json(), async (req: Request, res: Response): Promise<vo
       choices,
       correctAnswer,
       questionImage: questionData.questionImage || null,
-      explanationImage: questionData.explanationImage || null,
+      explanationImages: Array.isArray(questionData.explanationImages)
+        ? questionData.explanationImages.filter(Boolean)
+        : questionData.explanationImage
+          ? [questionData.explanationImage]
+          : [],
       questionType: questionData.questionType || 'normal',
       codeSnippet: questionData.codeSnippet || null,
     };
@@ -173,7 +191,8 @@ router.put('/:questionId', express.json(), async (req: Request, res: Response): 
         : questionData.correctAnswers;
     }
     if (questionData.questionImage !== undefined) updateData.questionImage = questionData.questionImage;
-    if (questionData.explanationImage !== undefined) updateData.explanationImage = questionData.explanationImage;
+    if (questionData.explanationImages !== undefined) updateData.explanationImages = questionData.explanationImages;
+    else if (questionData.explanationImage !== undefined) updateData.explanationImages = questionData.explanationImage ? [questionData.explanationImage] : [];
     if (questionData.questionType !== undefined) updateData.questionType = questionData.questionType;
     if (questionData.questionNumber !== undefined) updateData.questionNumber = questionData.questionNumber;
     if (questionData.codeSnippet !== undefined) updateData.codeSnippet = questionData.codeSnippet;

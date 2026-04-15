@@ -10,14 +10,36 @@
 /* カスタムオーバーレイの字幕スタイルはコンポーネント内で定義 */
 
 :root {
-  --foreground-rgb: 0, 0, 0;
+  --foreground-rgb: 17, 24, 39;
   --background-start-rgb: 255, 255, 255;
   --background-end-rgb: 255, 255, 255;
 }
 
+html.dark {
+  --foreground-rgb: 243, 244, 246;
+  --background-start-rgb: 3, 7, 18;
+  --background-end-rgb: 3, 7, 18;
+}
+
 body {
+  min-height: 100vh;
   color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-start-rgb));
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ナビ・トップのブランド見出し用 */
+.gradient-text {
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html.dark .gradient-text {
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 /* React Quill Editor Styles */
@@ -168,8 +190,21 @@ textarea {
   background-color: white;
 }
 
+html.dark input[type="text"],
+html.dark input[type="number"],
+html.dark textarea {
+  color: rgb(243 244 246);
+  background-color: rgb(31 41 55);
+  border-color: rgb(75 85 99);
+}
+
 /* Dialog styles */
 .dialog-content {
   background-color: white;
   color: #000;
+}
+
+html.dark .dialog-content {
+  background-color: rgb(31 41 55);
+  color: rgb(243 244 246);
 }

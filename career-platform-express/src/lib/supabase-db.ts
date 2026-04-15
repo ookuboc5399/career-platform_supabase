@@ -663,6 +663,7 @@ export interface CreateCertificationQuestionInput {
   correctAnswer: number;
   questionImage?: string;
   explanationImage?: string;
+  explanationImages?: string[];
   questionType?: 'normal' | 'truefalse' | 'programming';
   codeSnippet?: string;
 }
@@ -742,34 +743,57 @@ export async function createCertificationQuestion(data: CreateCertificationQuest
     ? data.questionNumber
     : null;
 
-  const { data: result, error } = await supabaseAdmin!
-    .from('certification_questions')
-    .insert({
-      id,
-      certification_id: data.certificationId,
-      question_number: questionNumberToUse,
-      question: data.question,
-      explanation: data.explanation || null,
-      year: data.year || null,
-      category: data.category || null,
-      choices: data.choices || [],
-      correct_answer: data.correctAnswer,
-      question_image: data.questionImage || null,
-      explanation_image: data.explanationImage || null,
-      question_type: data.questionType || 'normal',
-      code_snippet: data.codeSnippet || null,
-      created_at: now,
-      updated_at: now,
-    })
-    .select()
-    .single();
+  const explanationImagesArr = Array.isArray(data.explanationImages)
+    ? data.explanationImages
+    : data.explanationImage
+      ? [data.explanationImage]
+      : [];
+  const firstExplanationImage = explanationImagesArr[0] || null;
 
-  if (error) {
-    console.error('Error creating certification question:', error);
-    throw error;
+  const insertData: Record<string, unknown> = {
+    id,
+    certification_id: data.certificationId,
+    question_number: questionNumberToUse,
+    question: data.question,
+    explanation: data.explanation || null,
+    year: data.year || null,
+    category: data.category || null,
+    choices: data.choices || [],
+    correct_answer: data.correctAnswer,
+    question_image: data.questionImage || null,
+    explanation_image: firstExplanationImage,
+    question_type: data.questionType || 'normal',
+    code_snippet: data.codeSnippet || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  try {
+    const { data: result, error } = await supabaseAdmin!
+      .from('certification_questions')
+      .insert({ ...insertData, explanation_images: explanationImagesArr })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapCertificationQuestionFromDB(result);
+  } catch (err: unknown) {
+    const pgError = err as { code?: string };
+    if (pgError?.code === 'PGRST204') {
+      // explanation_images カラムが未作成の場合は explanation_image のみで再試行
+      const { data: result, error } = await supabaseAdmin!
+        .from('certification_questions')
+        .insert(insertData)
+        .select()
+        .single();
+      if (error) {
+        console.error('Error creating certification question:', error);
+        throw error;
+      }
+      return mapCertificationQuestionFromDB(result);
+    }
+    throw err;
   }
-
-  return mapCertificationQuestionFromDB(result);
 }
 
 export async function updateCertificationQuestion(
@@ -787,21 +811,51 @@ export async function updateCertificationQuestion(
   if (data.choices !== undefined) updateData.choices = data.choices;
   if (data.correctAnswer !== undefined) updateData.correct_answer = data.correctAnswer;
   if (data.questionNumber !== undefined) updateData.question_number = data.questionNumber;
-
-  const { data: result, error } = await supabaseAdmin!
-    .from('certification_questions')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return undefined;
-    console.error('Error updating certification question:', error);
-    throw error;
+  if (data.questionImage !== undefined) updateData.question_image = data.questionImage;
+  if (data.questionType !== undefined) updateData.question_type = data.questionType;
+  if (data.codeSnippet !== undefined) updateData.code_snippet = data.codeSnippet;
+  const explanationImagesArr = data.explanationImages !== undefined
+    ? data.explanationImages
+    : data.explanationImage
+      ? [data.explanationImage]
+      : null;
+  if (explanationImagesArr !== null) {
+    updateData.explanation_images = explanationImagesArr;
+    updateData.explanation_image = explanationImagesArr[0] || null;
   }
 
-  return result ? mapCertificationQuestionFromDB(result) : undefined;
+  try {
+    const { data: result, error } = await supabaseAdmin!
+      .from('certification_questions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return result ? mapCertificationQuestionFromDB(result) : undefined;
+  } catch (err: unknown) {
+    const pgError = err as { code?: string };
+    if (pgError?.code === 'PGRST204' && explanationImagesArr !== null) {
+      // explanation_images カラムが未作成の場合は explanation_image のみで再試行
+      delete updateData.explanation_images;
+      const { data: result, error } = await supabaseAdmin!
+        .from('certification_questions')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) {
+        if (error.code === 'PGRST116') return undefined;
+        console.error('Error updating certification question:', error);
+        throw error;
+      }
+      return result ? mapCertificationQuestionFromDB(result) : undefined;
+    }
+    if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'PGRST116') return undefined;
+    console.error('Error updating certification question:', err);
+    throw err;
+  }
 }
 
 export async function deleteCertificationQuestion(id: string): Promise<void> {
@@ -1242,11 +1296,16 @@ function mapCertificationChapterFromDB(data: any): CertificationChapter {
 
 function mapCertificationQuestionFromDB(data: any): CertificationQuestion {
   const choices = data.choices || [];
-  
+  const explanationImages = Array.isArray(data.explanation_images) && data.explanation_images.length > 0
+    ? data.explanation_images
+    : data.explanation_image
+      ? [data.explanation_image]
+      : [];
+
   return {
     id: data.id,
     certificationId: data.certification_id,
-    questionNumber: data.question_number || null, // 問題番号をマッピング
+    questionNumber: data.question_number || null,
     question: data.question,
     explanation: data.explanation || '',
     year: data.year || '',
@@ -1255,7 +1314,8 @@ function mapCertificationQuestionFromDB(data: any): CertificationQuestion {
     choices: choices,
     correctAnswer: data.correct_answer ?? 0,
     questionImage: data.question_image || null,
-    explanationImage: data.explanation_image || null,
+    explanationImage: explanationImages[0] || null,
+    explanationImages,
     questionType: data.question_type || 'normal',
     codeSnippet: data.code_snippet || null,
     createdAt: data.created_at,

@@ -1,0 +1,33 @@
+---
+description: Supabase データベース操作に関するルール
+globs: 
+alwaysApply: true
+---
+
+# Supabase MCP ルール
+
+## 基本方針
+- データベースのテーブル作成・変更・マイグレーションを行う際は、SQL文を提示するのではなく、必ず **Supabase MCP** を使って直接実行すること
+- テーブルのスキーマ確認もMCP経由で行うこと
+
+## 実行フロー
+1. まず `list_tables` でテーブル一覧を確認
+2. 必要に応じて `get_table_schema` でスキーマを確認  
+3. `execute_sql` で SQL を直接実行
+4. 実行結果を確認して報告
+
+## Supabase MCP が利用できない場合の代替
+- Cursor に Supabase MCP が未設定の場合は、`career-platform-express` のマイグレーションスクリプトを使用する
+- `DATABASE_URL`（Supabase の接続文字列）を `.env` に設定し、`npm run db:add-certification-questions-fk` 等を実行
+- 接続文字列は Supabase Dashboard > Project Settings > Database > Connection string で取得
+
+## 禁止事項
+- SQL文だけを提示して「これを実行してください」と言わない
+- Supabase Dashboard での手動操作を指示しない
+
+## 対象操作
+- CREATE TABLE / ALTER TABLE / DROP TABLE
+- INSERT / UPDATE / DELETE
+- インデックス作成
+- RLS ポリシーの設定
+- マイグレーション全般

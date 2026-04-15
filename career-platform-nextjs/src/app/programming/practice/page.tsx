@@ -12,14 +12,17 @@ interface ExerciseWithContext extends Exercise {
 }
 
 const typeLabels: Record<string, string> = {
-  'language': 'プログラミング言語',
-  'framework': 'フレームワーク',
-  'ai-platform': 'AIプラットフォーム',
+  language: 'プログラミング言語',
+  framework: 'フレームワーク',
+  'ai-platform': 'ワークフロー開発プラットフォーム',
+  ai: 'AI',
+  'ui-ux': 'UI/UX',
   'data-warehouse': 'データウェアハウス',
-  'cloud': 'クラウド',
-  'network': 'ネットワーク',
-  'saas': 'SaaS',
-  'others': 'その他',
+  cloud: 'クラウド',
+  iaas: 'IaaS / コンテナ',
+  network: 'ネットワーク',
+  saas: 'SaaS',
+  others: 'その他',
 };
 
 export default function ProgrammingPracticePage() {

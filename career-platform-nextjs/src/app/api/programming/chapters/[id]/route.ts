@@ -42,6 +42,8 @@ export async function GET(
       order: chapter.order,
       status: chapter.status,
       exercises: chapter.exercises || [],
+      slideUrl: chapter.slide_url || null,
+      pdfUrl: chapter.pdf_url || null,
       createdAt: chapter.created_at,
       updatedAt: chapter.updated_at,
     };
@@ -85,6 +87,7 @@ export async function PUT(
     if (body.order !== undefined) updateData.order = body.order;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.exercises !== undefined) updateData.exercises = body.exercises;
+    if (body.pdfUrl !== undefined) updateData.pdf_url = body.pdfUrl || null;
 
     const { data: result, error } = await supabaseAdmin
       .from('programming_chapters')
@@ -113,6 +116,8 @@ export async function PUT(
       order: result.order,
       status: result.status,
       exercises: result.exercises || [],
+      slideUrl: result.slide_url || null,
+      pdfUrl: result.pdf_url || null,
       createdAt: result.created_at,
       updatedAt: result.updated_at,
     };

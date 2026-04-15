@@ -3,7 +3,27 @@ import { supabaseAdmin } from '../lib/supabase';
 
 const router = express.Router();
 
-// Get chapters for a programming language
+function formatChapter(ch: any) {
+  return {
+    id: ch.id,
+    languageId: ch.language_id,
+    parentId: ch.parent_id || null,
+    title: ch.title,
+    description: ch.description,
+    videoUrl: ch.video_url,
+    thumbnailUrl: ch.thumbnail_url,
+    duration: ch.duration,
+    order: ch.order,
+    status: ch.status,
+    exercises: ch.exercises || [],
+    slideUrl: ch.slide_url || null,
+    pdfUrl: ch.pdf_url || null,
+    createdAt: ch.created_at,
+    updatedAt: ch.updated_at,
+  };
+}
+
+// Get chapters for a programming language (top-level with subChapters nested)
 router.get('/chapters', async (req: Request, res: Response<any>): Promise<void> => {
   try {
     const languageId = req.query.languageId as string;
@@ -18,27 +38,18 @@ router.get('/chapters', async (req: Request, res: Response<any>): Promise<void> 
       .eq('language_id', languageId)
       .order('order', { ascending: true });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    // スネークケースからキャメルケースに変換
-    const formattedChapters = (chapters || []).map(ch => ({
-      id: ch.id,
-      languageId: ch.language_id,
-      title: ch.title,
-      description: ch.description,
-      videoUrl: ch.video_url,
-      thumbnailUrl: ch.thumbnail_url,
-      duration: ch.duration,
-      order: ch.order,
-      status: ch.status,
-      exercises: ch.exercises || [],
-      createdAt: ch.created_at,
-      updatedAt: ch.updated_at,
+    const all = (chapters || []).map(formatChapter);
+    const topLevel = all.filter(ch => !ch.parentId);
+    const subs = all.filter(ch => ch.parentId);
+
+    const nested = topLevel.map(ch => ({
+      ...ch,
+      subChapters: subs.filter(s => s.parentId === ch.id),
     }));
 
-    res.json(formattedChapters);
+    res.json(nested);
     return;
   } catch (error) {
     console.error('Error fetching programming chapters:', error);
@@ -47,7 +58,7 @@ router.get('/chapters', async (req: Request, res: Response<any>): Promise<void> 
   }
 });
 
-// Get a specific chapter
+// Get a specific chapter (with subChapters if it's a parent)
 router.get('/chapters/:id', async (req: Request, res: Response<any>): Promise<void> => {
   try {
     const { id } = req.params;
@@ -70,23 +81,19 @@ router.get('/chapters/:id', async (req: Request, res: Response<any>): Promise<vo
       return;
     }
 
-    // スネークケースからキャメルケースに変換
-    const formattedChapter = {
-      id: chapter.id,
-      languageId: chapter.language_id,
-      title: chapter.title,
-      description: chapter.description,
-      videoUrl: chapter.video_url,
-      thumbnailUrl: chapter.thumbnail_url,
-      duration: chapter.duration,
-      order: chapter.order,
-      status: chapter.status,
-      exercises: chapter.exercises || [],
-      createdAt: chapter.created_at,
-      updatedAt: chapter.updated_at,
-    };
+    const formatted = formatChapter(chapter);
 
-    res.json(formattedChapter);
+    // サブチャプターを取得
+    const { data: subs } = await supabaseAdmin!
+      .from('programming_chapters')
+      .select('*')
+      .eq('parent_id', id)
+      .order('order', { ascending: true });
+
+    res.json({
+      ...formatted,
+      subChapters: (subs || []).map(formatChapter),
+    });
     return;
   } catch (error) {
     console.error('Error fetching programming chapter:', error);
@@ -98,14 +105,14 @@ router.get('/chapters/:id', async (req: Request, res: Response<any>): Promise<vo
 // Create a new chapter
 router.post('/chapters', async (req: Request, res: Response<any>): Promise<void> => {
   try {
-    const { languageId, title, description, videoUrl, duration, order, exercises } = req.body;
+    const { languageId, title, description, videoUrl, duration, order, exercises, status, parentId } = req.body;
 
-    if (!languageId || !title || !description || !videoUrl || !duration || order === undefined) {
+    if (!languageId || !title || !description) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
 
-    const id = `${languageId}-${Date.now()}`;
+    const id = `${languageId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const now = new Date().toISOString();
 
     const { data: createdChapter, error } = await supabaseAdmin!
@@ -113,12 +120,13 @@ router.post('/chapters', async (req: Request, res: Response<any>): Promise<void>
       .insert({
         id,
         language_id: languageId,
+        parent_id: parentId || null,
         title,
         description,
-        video_url: videoUrl,
-        duration,
-        order,
-        status: 'draft',
+        video_url: videoUrl || '',
+        duration: duration || '',
+        order: order ?? 1,
+        status: status || 'published',
         exercises: exercises || [],
         created_at: now,
         updated_at: now,
@@ -126,27 +134,9 @@ router.post('/chapters', async (req: Request, res: Response<any>): Promise<void>
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    // スネークケースからキャメルケースに変換
-    const formattedChapter = {
-      id: createdChapter.id,
-      languageId: createdChapter.language_id,
-      title: createdChapter.title,
-      description: createdChapter.description,
-      videoUrl: createdChapter.video_url,
-      thumbnailUrl: createdChapter.thumbnail_url,
-      duration: createdChapter.duration,
-      order: createdChapter.order,
-      status: createdChapter.status,
-      exercises: createdChapter.exercises || [],
-      createdAt: createdChapter.created_at,
-      updatedAt: createdChapter.updated_at,
-    };
-
-    res.status(201).json(formattedChapter);
+    res.status(201).json(formatChapter(createdChapter));
     return;
   } catch (error) {
     console.error('Error creating programming chapter:', error);
@@ -166,11 +156,8 @@ router.put('/chapters/:id', async (req: Request, res: Response<any>): Promise<vo
       return;
     }
 
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
+    const updateData: any = { updated_at: new Date().toISOString() };
 
-    // キャメルケースをスネークケースに変換
     if (req.body.title !== undefined) updateData.title = req.body.title;
     if (req.body.description !== undefined) updateData.description = req.body.description;
     if (req.body.videoUrl !== undefined) updateData.video_url = req.body.videoUrl;
@@ -179,6 +166,7 @@ router.put('/chapters/:id', async (req: Request, res: Response<any>): Promise<vo
     if (req.body.order !== undefined) updateData.order = req.body.order;
     if (req.body.status !== undefined) updateData.status = req.body.status;
     if (req.body.exercises !== undefined) updateData.exercises = req.body.exercises;
+    if (req.body.parentId !== undefined) updateData.parent_id = req.body.parentId || null;
 
     const { data: result, error } = await supabaseAdmin!
       .from('programming_chapters')
@@ -193,23 +181,7 @@ router.put('/chapters/:id', async (req: Request, res: Response<any>): Promise<vo
       return;
     }
 
-    // スネークケースからキャメルケースに変換
-    const formattedChapter = {
-      id: result.id,
-      languageId: result.language_id,
-      title: result.title,
-      description: result.description,
-      videoUrl: result.video_url,
-      thumbnailUrl: result.thumbnail_url,
-      duration: result.duration,
-      order: result.order,
-      status: result.status,
-      exercises: result.exercises || [],
-      createdAt: result.created_at,
-      updatedAt: result.updated_at,
-    };
-
-    res.json(formattedChapter);
+    res.json(formatChapter(result));
     return;
   } catch (error) {
     console.error('Error updating programming chapter:', error);
@@ -235,15 +207,40 @@ router.delete('/chapters/:id', async (req: Request, res: Response<any>): Promise
       .eq('id', id)
       .eq('language_id', languageId);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     res.status(204).send();
     return;
   } catch (error) {
     console.error('Error deleting programming chapter:', error);
     res.status(500).json({ error: 'Failed to delete programming chapter' });
+    return;
+  }
+});
+
+// Update chapter order
+router.put('/chapters/order', async (req: Request, res: Response<any>): Promise<void> => {
+  try {
+    const { chapters } = req.body;
+
+    if (!chapters || !Array.isArray(chapters)) {
+      res.status(400).json({ error: 'chapters array is required' });
+      return;
+    }
+
+    const updates = chapters.map(({ id, order }: { id: string; order: number }) =>
+      supabaseAdmin!
+        .from('programming_chapters')
+        .update({ order, updated_at: new Date().toISOString() })
+        .eq('id', id)
+    );
+
+    await Promise.all(updates);
+    res.json({ success: true });
+    return;
+  } catch (error) {
+    console.error('Error updating chapter order:', error);
+    res.status(500).json({ error: 'Failed to update chapter order' });
     return;
   }
 });

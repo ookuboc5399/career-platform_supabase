@@ -128,9 +128,9 @@ export default function EnglishLessonPage({
 
         {/* ビデオセクション */}
         {content.videoUrl && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">レッスン動画</h2>
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+          <div className="mb-8 flex flex-col items-center">
+            <h2 className="mb-4 text-xl font-semibold">レッスン動画</h2>
+            <div className="aspect-video w-full max-w-4xl overflow-hidden rounded-lg bg-black">
               <VideoPlayer
                 url={content.videoUrl}
                 onComplete={handleVideoComplete}

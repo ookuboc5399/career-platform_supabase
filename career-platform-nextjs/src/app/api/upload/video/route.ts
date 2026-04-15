@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { uploadFile, CONTAINERS } from '@/lib/storage';
+import { uploadFile, CONTAINERS, bucketNameForVideoUploadType, StorageUploadFileNameError } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,6 +7,9 @@ export const runtime = 'nodejs';
 const DEFAULT_BUCKET = process.env.SUPABASE_ENGLISH_MOVIES_BUCKET
   || process.env.NEXT_PUBLIC_SUPABASE_ENGLISH_MOVIES_BUCKET
   || CONTAINERS.ENGLISH_MOVIES;
+
+/** サーバー経由は小さめのみ（大きいファイルは /api/upload/video/prepare + クライアント直接 PUT） */
+const SERVER_PROXY_MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
@@ -37,25 +40,25 @@ export async function POST(request: Request) {
       );
     }
 
+    if (file.size > SERVER_PROXY_MAX_BYTES) {
+      return NextResponse.json(
+        {
+          error:
+            'このサイズの動画はサーバー経由ではアップロードできません。最新の画面から再度お試しください（署名付き URL で直接アップロードされます）。',
+          usePrepareFlow: true,
+        },
+        { status: 413 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     let bucketName: string;
-    switch (type) {
-      case 'english':
-        bucketName = DEFAULT_BUCKET;
-        break;
-      case 'certification':
-        bucketName = CONTAINERS.CERTIFICATION_VIDEOS;
-        break;
-      case 'programming':
-        bucketName = CONTAINERS.PROGRAMMING_VIDEOS;
-        break;
-      default:
-        return NextResponse.json(
-          { error: 'Invalid video type' },
-          { status: 400 }
-        );
+    try {
+      bucketName = bucketNameForVideoUploadType(type, DEFAULT_BUCKET);
+    } catch {
+      return NextResponse.json({ error: 'Invalid video type' }, { status: 400 });
     }
 
     const url = await uploadFile(bucketName, buffer, file.name, file.type);
@@ -69,6 +72,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Upload error:', error);
+    if (error instanceof StorageUploadFileNameError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: 'Failed to upload file' },
       { status: 500 }

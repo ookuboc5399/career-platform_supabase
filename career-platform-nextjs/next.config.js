@@ -10,6 +10,7 @@ const nextConfig = {
   images: {
     domains: [
       'example.com',
+      'ehtdvvfznghqntabsfdr.supabase.co',
       'universityimages.blob.core.windows.net',
       'englishimages.blob.core.windows.net',
       'gsp-image-cdn.wmsports.io',
@@ -37,6 +38,30 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   poweredByHeader: false,
+  async redirects() {
+    return [
+      {
+        source: '/programming/github/chapters/github-enterprise-copilot-features',
+        destination: '/programming/github/chapters/github-enterprise-ai-copilot',
+        permanent: true,
+      },
+      {
+        source: '/programming/github/chapters/github-enterprise-repository',
+        destination: '/programming/github/chapters/github-enterprise-org-repositories',
+        permanent: true,
+      },
+      {
+        source: '/programming/github/chapters/github-enterprise-branch-merge',
+        destination: '/programming/github/chapters/github-enterprise-org-repositories',
+        permanent: true,
+      },
+      {
+        source: '/programming/github/chapters/github-projects',
+        destination: '/programming/github/chapters/github-enterprise-org-projects',
+        permanent: true,
+      },
+    ];
+  },
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
     config.module.rules.push({
       test: /react-quill/,
@@ -52,7 +77,7 @@ const nextConfig = {
 
     return config;
   },
-  transpilePackages: ['react-quill'],
+  transpilePackages: ['react-quill', 'tailwind-merge'],
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3001';
     

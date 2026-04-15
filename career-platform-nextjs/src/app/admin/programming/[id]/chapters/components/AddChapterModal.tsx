@@ -9,9 +9,11 @@ interface AddChapterModalProps {
   isOpen: boolean;
   onClose: () => void;
   languageId: string;
+  parentId?: string | null;
+  parentTitle?: string;
 }
 
-export default function AddChapterModal({ isOpen, onClose, languageId }: AddChapterModalProps) {
+export default function AddChapterModal({ isOpen, onClose, languageId, parentId, parentTitle }: AddChapterModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -41,10 +43,11 @@ export default function AddChapterModal({ isOpen, onClose, languageId }: AddChap
         },
         body: JSON.stringify({
           languageId,
+          parentId: parentId || null,
           title,
           description,
           videoUrl,
-          thumbnailUrl: '',  // 空文字列を設定
+          thumbnailUrl: '',
           duration: duration || '',
           status,
           exercises: exercises || [],
@@ -177,7 +180,9 @@ export default function AddChapterModal({ isOpen, onClose, languageId }: AddChap
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
-          <DialogTitle>新規チャプター追加</DialogTitle>
+          <DialogTitle>
+          {parentId ? `サブチャプター追加${parentTitle ? ` — ${parentTitle}` : ''}` : '新規チャプター追加'}
+        </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

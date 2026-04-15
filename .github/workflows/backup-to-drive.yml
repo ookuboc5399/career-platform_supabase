@@ -1,0 +1,56 @@
+name: Supabase Backup to Google Drive
+
+on:
+  schedule:
+    # 毎日 4:00 JST = 19:00 UTC (前日)
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies and run backup
+        working-directory: career-platform-express
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npm ci
+          npm run backup
+
+      - name: Install rclone
+        run: |
+          curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip
+          unzip -o rclone-current-linux-amd64.zip
+          cp rclone-*-linux-amd64/rclone /usr/local/bin/
+          chmod 755 /usr/local/bin/rclone
+
+      - name: Configure rclone for Google Drive
+        env:
+          GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "$GDRIVE_SA_JSON" > /tmp/gdrive-sa.json
+          {
+            echo '[gdrive]'
+            echo 'type = drive'
+            echo 'scope = drive'
+            echo 'service_account_file = /tmp/gdrive-sa.json'
+            [ -n "$GDRIVE_FOLDER_ID" ] && echo "root_folder_id = $GDRIVE_FOLDER_ID"
+          } > ~/.config/rclone/rclone.conf
+
+      - name: Upload to Google Drive
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          rclone copy backups/db/json/$DATE gdrive:$DATE --create-empty-src-dirs -v

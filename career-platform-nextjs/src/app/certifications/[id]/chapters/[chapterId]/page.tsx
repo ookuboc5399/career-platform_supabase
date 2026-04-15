@@ -154,37 +154,36 @@ export default function ChapterPage({ params }: { params: { id: string; chapterI
       <div className="flex items-center gap-4 mb-8">
         <Link
           href={`/certifications/${certificationId}/chapters`}
-          className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           戻る
         </Link>
-        <h1 className="text-3xl font-bold">{chapter.title}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{chapter.title}</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* 左側: ビデオプレイヤー */}
-        <div>
-          <div className="aspect-video mb-6">
-            <VideoPlayer 
-              url={chapter.videoUrl} 
-              onComplete={handleVideoComplete}
-              completed={progress?.videoCompleted}
-            />
-          </div>
-          <div className="prose max-w-none">
-            <p className="text-gray-700 mb-4">{chapter.description}</p>
-            <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
-          </div>
+      <div className="mb-10 flex w-full justify-center">
+        <div className="aspect-video w-full max-w-4xl overflow-hidden rounded-lg bg-black">
+          <VideoPlayer
+            url={chapter.videoUrl}
+            onComplete={handleVideoComplete}
+            completed={progress?.videoCompleted}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        <div className="prose max-w-none">
+          <p className="mb-4 text-gray-700 dark:text-gray-300">{chapter.description}</p>
+          <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
         </div>
 
-        {/* 右側: 問題または次のチャプターへのボタン */}
         <div>
           {chapter.questions && chapter.questions.length > 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-6">確認問題</h2>
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800/80">
+              <h2 className="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">確認問題</h2>
               <div className="space-y-6">
                 {chapter.questions.map((question, index) => {
                   const isAnswered = progress?.completedQuestions?.includes(question.id);
@@ -297,9 +296,9 @@ export default function ChapterPage({ params }: { params: { id: string; chapterI
               </div>
             </div>
           ) : nextChapter && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">次のチャプター</h2>
-              <p className="text-gray-600 mb-6">{nextChapter.title}</p>
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800/80">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">次のチャプター</h2>
+              <p className="mb-6 text-gray-600 dark:text-gray-300">{nextChapter.title}</p>
               <Button
                 onClick={() => router.push(`/certifications/${certificationId}/chapters/${nextChapter.id}`)}
                 className="w-full bg-blue-600 text-white px-8 py-4 rounded-lg shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"

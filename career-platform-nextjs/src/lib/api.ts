@@ -135,6 +135,7 @@ export async function createQuestion(certificationId: string, data: {
   correctAnswers: number[];
   explanation: string;
   explanationImage?: string;
+  explanationImages?: string[];
   year: string;
   category: string;
   mainCategory: string;

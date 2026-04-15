@@ -20,6 +20,8 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
   const [duration, setDuration] = useState(chapter?.duration || '');
   const [status, setStatus] = useState<'draft' | 'published'>(chapter?.status || 'draft');
   const [exercises, setExercises] = useState(chapter?.exercises || []);
+  const [pdfUrl, setPdfUrl] = useState(chapter?.pdfUrl || '');
+  const [pdfUploading, setPdfUploading] = useState(false);
 
   useEffect(() => {
     if (chapter) {
@@ -28,6 +30,7 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
       setVideoUrl(chapter.videoUrl);
       setDuration(chapter.duration);
       setStatus(chapter.status);
+      setPdfUrl(chapter.pdfUrl || '');
       // 既存の演習問題にtypeがない場合は'code'をデフォルトとして設定
       const exercisesWithType = (chapter.exercises || []).map(ex => ({
         ...ex,
@@ -51,6 +54,7 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
       duration,
       status,
       exercises,
+      pdfUrl: pdfUrl || undefined,
     });
   };
 
@@ -240,6 +244,74 @@ export default function EditChapterModal({ isOpen, onClose, onSave, chapter }: E
             </div>
           </div>
 
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              PDF資料
+            </label>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">PDFをアップロード</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !chapter?.id) return;
+                    setPdfUploading(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append('pdf', file);
+                      const res = await fetch(`/api/programming/chapters/${chapter.id}/upload-pdf`, {
+                        method: 'POST',
+                        body: fd,
+                      });
+                      if (!res.ok) throw new Error('アップロード失敗');
+                      const { pdfUrl: uploaded } = await res.json();
+                      setPdfUrl(uploaded);
+                    } catch (err) {
+                      console.error(err);
+                      alert('PDFのアップロードに失敗しました');
+                    } finally {
+                      setPdfUploading(false);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={pdfUploading}
+                />
+                {pdfUploading && (
+                  <p className="mt-1 text-sm text-blue-600">アップロード中...</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">またはPDF URL</label>
+                <input
+                  type="url"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="https://example.com/material.pdf"
+                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {pdfUrl && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/>
+                    <path d="M14 2v6h6"/>
+                  </svg>
+                  <span className="truncate">{pdfUrl}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPdfUrl('')}
+                    className="ml-auto text-red-500 hover:text-red-700 shrink-0"
+                  >
+                    削除
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

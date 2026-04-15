@@ -1,6 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('programming_languages')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Language not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to fetch language' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }

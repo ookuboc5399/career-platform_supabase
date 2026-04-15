@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import {
+  isStorageUploadFileNameAllowed,
+  STORAGE_UPLOAD_FILENAME_HINT,
+} from '@/lib/storage-upload-filename';
 import { Button } from './button';
 
 export interface VideoUploaderProps {
@@ -38,6 +42,12 @@ export function VideoUploader({ onUploadComplete, type = 'certification', disabl
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!isStorageUploadFileNameAllowed(file.name)) {
+      setError(STORAGE_UPLOAD_FILENAME_HINT);
+      e.target.value = '';
+      return;
+    }
+
     try {
       setIsUploading(true);
       setError(null);
@@ -53,31 +63,48 @@ export function VideoUploader({ onUploadComplete, type = 'certification', disabl
         // durationの取得に失敗してもアップロードは続行
       }
 
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('type', type);
-      formData.append('duration', duration);
-
-      const response = await fetch('/api/upload/video', {
+      // 1) 署名付き URL を取得（JSON のみ — 大容量を Next サーバーで Buffer 化しない）
+      const prep = await fetch('/api/upload/video/prepare', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, type }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`Failed to upload video: ${errorText}`);
+      if (!prep.ok) {
+        const errorText = await prep.text();
+        let detail = errorText;
+        try {
+          const j = JSON.parse(errorText) as { error?: string };
+          if (j.error) detail = j.error;
+        } catch {
+          /* そのまま */
+        }
+        throw new Error(detail || `アップロード準備に失敗しました (${prep.status})`);
       }
 
-      const data = await response.json();
-      // サーバー側で取得したdurationを使用（クライアント側で取得できなかった場合のフォールバック）
-      const finalDuration = data.duration || duration;
-      // storagePathも含めて返す（Supabase Storageの場合）
-      await onUploadComplete(data.url, finalDuration.toString(), data.storagePath);
+      const { signedUrl, publicUrl, storagePath } = (await prep.json()) as {
+        signedUrl: string;
+        publicUrl: string;
+        storagePath: string;
+      };
+
+      // 2) Supabase storage-js の uploadToSignedUrl と同形の multipart でブラウザから直接 PUT
+      const fd = new FormData();
+      fd.append('cacheControl', '3600');
+      fd.append('', file);
+
+      const putRes = await fetch(signedUrl, { method: 'PUT', body: fd });
+
+      if (!putRes.ok) {
+        const errBody = await putRes.text();
+        console.error('Direct storage PUT failed:', putRes.status, errBody);
+        throw new Error(
+          errBody || `ストレージへのアップロードに失敗しました (${putRes.status})`
+        );
+      }
+
+      const finalDuration = duration;
+      await onUploadComplete(publicUrl, finalDuration.toString(), storagePath);
     } catch (error) {
       console.error('Error uploading video:', error);
       setError(error instanceof Error ? error.message : 'Failed to upload video');

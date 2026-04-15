@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from './button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './dialog';
 import { RichTextEditor } from './RichTextEditor';
@@ -39,9 +39,12 @@ interface EditQuestionModalProps {
   onClose: () => void;
   onSave: (data: Question) => void;
   question: Question;
+  existingQuestions?: Question[];
 }
 
-export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQuestionModalProps) {
+const getPlainTextForCompare = (s: string) => (s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+export function EditQuestionModal({ isOpen, onClose, onSave, question, existingQuestions = [] }: EditQuestionModalProps) {
   const [questionNumber, setQuestionNumber] = useState<number | ''>(question.questionNumber || '');
   const [questionText, setQuestionText] = useState(question.question);
   const [questionImage, setQuestionImage] = useState<string | null>(question.questionImage);
@@ -56,7 +59,9 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   );
   const [correctAnswers, setCorrectAnswers] = useState<number[]>(question.correctAnswers);
   const [explanation, setExplanation] = useState(question.explanation);
-  const [explanationImages, setExplanationImages] = useState<string[]>(question.explanationImages);
+  const [explanationImages, setExplanationImages] = useState<string[]>(
+    question.explanationImages || (question as any).explanationImage ? [(question as any).explanationImage] : []
+  );
   const [tableHeaders, setTableHeaders] = useState<string[]>(
     question.explanationTable?.headers || ['']
   );
@@ -66,6 +71,15 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   const [hasTable, setHasTable] = useState(!!question.explanationTable);
   const [year, setYear] = useState(question.year || '');
   const [category, setCategory] = useState(question.category || '');
+
+  // 問題文の重複チェック（自分自身は除外）
+  const duplicateQuestionCheck = useMemo(() => {
+    const trimmed = getPlainTextForCompare(questionText);
+    if (!trimmed) return null;
+    return existingQuestions.find(
+      (q) => q.id !== question.id && getPlainTextForCompare(q.question) === trimmed
+    ) || null;
+  }, [questionText, question.id, existingQuestions]);
 
   const getAvailableYears = useCallback((): string[] => {
     const defaultYears = [
@@ -193,6 +207,18 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 問題文の重複チェック
+    const trimmedQuestion = getPlainTextForCompare(questionText);
+    if (trimmedQuestion) {
+      const duplicate = existingQuestions.find(
+        (q) => q.id !== question.id && getPlainTextForCompare(q.question) === trimmedQuestion
+      );
+      if (duplicate) {
+        alert('既に同じ問題が存在します。問題文が重複しています。');
+        return;
+      }
+    }
+
     const data = {
       ...question,
       questionNumber: typeof questionNumber === 'number' ? questionNumber : undefined,
@@ -290,15 +316,14 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">
-                出題年度
+                出題年度（任意・模擬試験の場合は未選択可）
               </label>
               <select
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 className="w-full p-2 border rounded"
-                required
               >
-                <option value="">選択してください</option>
+                <option value="">未選択（模擬試験など）</option>
                 {getAvailableYears().map((y: string) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -308,7 +333,7 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  メインカテゴリー
+                  メインカテゴリー（任意）
                 </label>
                 <select
                   value={mainCategory}
@@ -317,9 +342,8 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                     setCategory(''); // サブカテゴリーをリセット
                   }}
                   className="w-full p-2 border rounded"
-                  required
                 >
-                  <option value="">選択してください</option>
+                  <option value="">未選択</option>
                   {Object.keys(categories).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -327,16 +351,15 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  サブカテゴリー
+                  サブカテゴリー（任意）
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full p-2 border rounded"
-                  required
                   disabled={!mainCategory}
                 >
-                  <option value="">選択してください</option>
+                  <option value="">未選択</option>
                   {mainCategory && categories[mainCategory].map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -349,13 +372,18 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
             <label className="block text-lg font-medium mb-3 text-gray-900">
               問題文
             </label>
-            <div className="min-h-[200px]">
+            <div className={`min-h-[200px] ${duplicateQuestionCheck ? 'rounded-lg ring-2 ring-red-500' : ''}`}>
               <RichTextEditor
                 value={questionText}
                 onChange={setQuestionText}
                 placeholder="問題文を入力してください"
               />
             </div>
+            {duplicateQuestionCheck && (
+              <p className="mt-2 text-sm text-red-600">
+                ⚠️ 既に同じ問題が存在します。問題文が重複しています。
+              </p>
+            )}
             {/* 問題画像 */}
             <div className="mt-4">
               <label className="block text-sm font-medium mb-2">
@@ -474,6 +502,60 @@ export function EditQuestionModal({ isOpen, onClose, onSave, question }: EditQue
                 placeholder="解説を入力してください"
               />
             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border shadow-sm">
+            <label className="block text-lg font-medium mb-3 text-gray-900">
+              解説画像（複数登録可）
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  formData.append('type', 'certification-image');
+                  try {
+                    const response = await fetch('/api/upload', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      setExplanationImages(prev => [...prev, data.url]);
+                    }
+                  } catch (err) {
+                    console.error('Upload error:', err);
+                  }
+                }
+                e.target.value = '';
+              }}
+              className="w-full mb-2"
+            />
+            {explanationImages.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-2">
+                {explanationImages.map((url, index) => (
+                  <div key={index} className="relative">
+                    <Image
+                      src={url}
+                      alt={`解説画像 ${index + 1}`}
+                      width={200}
+                      height={200}
+                      className="rounded-md object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setExplanationImages(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

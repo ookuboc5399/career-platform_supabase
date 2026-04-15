@@ -16,7 +16,7 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave, editingLa
   const [id, setId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network'>('language');
+  const [type, setType] = useState<ProgrammingLanguage['type']>('language');
 
   // 編集モードの場合、初期値を設定
   useEffect(() => {
@@ -76,15 +76,18 @@ export default function CreateLanguageModal({ isOpen, onClose, onSave, editingLa
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network')}
+              onChange={(e) => setType(e.target.value as ProgrammingLanguage['type'])}
               className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             >
               <option value="language">プログラミング言語</option>
               <option value="framework">フレームワーク</option>
               <option value="ai-platform">ワークフロー開発プラットフォーム</option>
+              <option value="ai">AI（LLM・エージェント製品）</option>
+              <option value="ui-ux">UI/UX</option>
               <option value="data-warehouse">データウェアハウス</option>
               <option value="cloud">クラウド</option>
+              <option value="iaas">IaaS / コンテナ</option>
               <option value="network">ネットワーク</option>
               <option value="saas">SaaS</option>
               <option value="others">その他</option>

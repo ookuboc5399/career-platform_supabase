@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadFile, CONTAINERS } from '@/lib/storage';
+import { uploadFile, CONTAINERS, StorageUploadFileNameError } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,6 +59,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url });
   } catch (error) {
     console.error('Error uploading file:', error);
+    if (error instanceof StorageUploadFileNameError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: 'Failed to upload file' },
       { status: 500 }

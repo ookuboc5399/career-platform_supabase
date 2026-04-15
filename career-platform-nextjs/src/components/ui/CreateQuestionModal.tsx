@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { createQuestion, uploadFile } from '@/lib/api';
+import type { Certification, CertificationQuestion } from '@/types/api';
 
 interface Props {
   certificationId: string;
   category: string;
+  certification?: Certification | null;
+  existingQuestions?: CertificationQuestion[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -30,9 +33,30 @@ type CategoryMap = {
   [key: string]: string[];
 };
 
-export default function CreateQuestionModal({ certificationId, category, isOpen, onClose }: Props) {
+type QuestionSource = 'past' | 'mock';
+
+const getPlainTextForCompare = (s: string) => (s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+export default function CreateQuestionModal({ certificationId, category, certification, existingQuestions = [], isOpen, onClose }: Props) {
+  const [questionSource, setQuestionSource] = useState<QuestionSource>('past');
+  const isMockExam = questionSource === 'mock';
+
+  const getNextQuestionNumber = useCallback((): number => {
+    const numbers = existingQuestions
+      .map((q) => (typeof q.questionNumber === 'number' ? q.questionNumber : 0))
+      .filter((n) => n > 0);
+    return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+  }, [existingQuestions]);
+
   const [questionNumber, setQuestionNumber] = useState<string>('');
   const [question, setQuestion] = useState('');
+
+  // 問題文の重複チェック（HTMLを除去して比較）
+  const duplicateQuestionCheck = useMemo(() => {
+    const trimmed = getPlainTextForCompare(question);
+    if (!trimmed) return null;
+    return existingQuestions.find((q) => getPlainTextForCompare(q.question) === trimmed) || null;
+  }, [question, existingQuestions]);
   const [questionImage, setQuestionImage] = useState<File | null>(null);
   const [questionImagePreview, setQuestionImagePreview] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<'normal' | 'truefalse' | 'programming'>('normal');
@@ -56,8 +80,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
   };
   const [correctAnswers, setCorrectAnswers] = useState<number[]>([]);
   const [explanation, setExplanation] = useState('');
-  const [explanationImage, setExplanationImage] = useState<File | null>(null);
-  const [explanationImagePreview, setExplanationImagePreview] = useState<string | null>(null);
+  const [explanationImages, setExplanationImages] = useState<{ file: File | null; preview: string }[]>([]);
   const [year, setYear] = useState('');
   const [mainCategory, setMainCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
@@ -91,6 +114,15 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
         ];
       case '14': // Python
         return ['2024年', '2023年', '2022年', '2021年', '2020年'];
+      case 'chusho-shindanshi': // 中小企業診断士
+        return [
+          'H19年2次',
+          'H20年2次',
+          'H21年2次',
+          'R元秋2次',
+          'R6年2次',
+          ...defaultYears,
+        ];
       default:
         return defaultYears;
     }
@@ -99,6 +131,12 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
   const getAvailableCategories = useCallback((): CategoryMap => {
     switch (category) {
       case 'finance':
+        if (certificationId === 'chusho-shindanshi') {
+          return {
+            '2次試験（事例）': ['事例Ⅰ', '事例Ⅱ', '事例Ⅲ', '事例Ⅳ'],
+            '2次試験（その他）': ['論文', '企業診断'],
+          };
+        }
         return {
           '企業と法務': ['企業活動', '法務'],
           '経営戦略': ['経営戦略マネジメント', '技術戦略マネジメント', 'ビジネスインダストリ']
@@ -216,6 +254,13 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
     setSubCategory('');
   }, [category, certificationId, getAvailableCategories]);
 
+  useEffect(() => {
+    if (isOpen) {
+      setQuestionSource('past');
+      setQuestionNumber(String(getNextQuestionNumber()));
+    }
+  }, [isOpen, getNextQuestionNumber]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleQuestionImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,16 +275,20 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
     }
   };
 
-  const handleExplanationImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExplanationImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setExplanationImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setExplanationImagePreview(reader.result as string);
+        setExplanationImages(prev => [...prev, { file, preview: reader.result as string }]);
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
+  };
+
+  const handleExplanationImageRemove = (index: number) => {
+    setExplanationImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleOptionImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,6 +326,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
   };
 
   const resetForm = () => {
+    setQuestionSource('past');
     setQuestionNumber('');
     setQuestion('');
     setQuestionImage(null);
@@ -291,8 +341,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
     ]);
     setCorrectAnswers([]);
     setExplanation('');
-    setExplanationImage(null);
-    setExplanationImagePreview(null);
+    setExplanationImages([]);
     setYear('');
     setMainCategory('');
     setSubCategory('');
@@ -302,12 +351,48 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
     e.preventDefault();
     if (isSubmitting) return;
 
+    if (!isMockExam) {
+      if (!year) {
+        alert('年度を選択してください。');
+        return;
+      }
+      if (!mainCategory) {
+        alert('メインカテゴリーを選択してください。');
+        return;
+      }
+      if (mainCategory && !subCategory) {
+        alert('サブカテゴリーを選択してください。');
+        return;
+      }
+    }
+
+    const num = questionNumber ? Number(questionNumber) : 0;
+    if (num > 0) {
+      const isDuplicate = existingQuestions.some(
+        (q) => (typeof q.questionNumber === 'number' ? q.questionNumber : 0) === num
+      );
+      if (isDuplicate) {
+        alert(`問題番号 ${num} は既に使用されています。別の番号を指定してください。`);
+        return;
+      }
+    }
+
+    // 問題文の重複チェック
+    const trimmedQuestion = getPlainTextForCompare(question);
+    if (trimmedQuestion) {
+      const duplicate = existingQuestions.find((q) => getPlainTextForCompare(q.question) === trimmedQuestion);
+      if (duplicate) {
+        alert('既に同じ問題が存在します。問題文が重複しています。');
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
 
       // 画像をアップロード
       let questionImageUrl = '';
-      let explanationImageUrl = '';
+      const explanationImageUrls: string[] = [];
       const optionImageUrls: string[] = [];
       const subOptionImageUrls: { [key: number]: string[] } = {};
 
@@ -338,11 +423,14 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
         }
       }
 
-      if (explanationImage) {
-        explanationImageUrl = await uploadFile(explanationImage, 'certification-image');
+      for (const item of explanationImages) {
+        if (item.file) {
+          const url = await uploadFile(item.file, 'certification-image');
+          explanationImageUrls.push(url);
+        }
       }
 
-      // 問題を作成
+      // 問題を作成（模擬試験の場合は年度・カテゴリーを空でも可）
       await createQuestion(certificationId, {
         questionNumber: questionNumber ? Number(questionNumber) : undefined,
         question,
@@ -359,7 +447,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
         })),
         correctAnswers,
         explanation,
-        explanationImage: explanationImageUrl,
+        explanationImages: explanationImageUrls,
         year,
         category: subCategory,
         mainCategory,
@@ -380,6 +468,40 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
       <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white p-8">
           <h2 className="text-3xl font-bold mb-8">新規問題作成</h2>
           <form onSubmit={handleSubmit} className="space-y-8">
+            {/* 過去問 or 模擬試験 */}
+            <div>
+              <label className="block text-base font-medium text-gray-900 mb-2">
+                問題種別
+              </label>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="questionSource"
+                    value="past"
+                    checked={questionSource === 'past'}
+                    onChange={() => setQuestionSource('past')}
+                    className="h-4 w-4"
+                  />
+                  <span>過去問</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="questionSource"
+                    value="mock"
+                    checked={questionSource === 'mock'}
+                    onChange={() => setQuestionSource('mock')}
+                    className="h-4 w-4"
+                  />
+                  <span>模擬試験</span>
+                </label>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {questionSource === 'past' ? '年度・カテゴリーの入力が必要です。' : '模擬試験の場合は年度・カテゴリーは任意です。'}
+              </p>
+            </div>
+
             {/* 問題番号（任意） */}
             <div>
               <label className="block text-base font-medium text-gray-900 mb-2">
@@ -393,7 +515,9 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="例: 15（問15として保存）"
               />
-              <p className="mt-1 text-sm text-gray-500">未入力の場合は番号なしで保存されます。</p>
+              <p className="mt-1 text-sm text-gray-500">
+                推奨番号を自動入力しています。重複する番号は使用できません。未入力の場合は番号なしで保存されます。
+              </p>
             </div>
             {/* 問題文 */}
             <div>
@@ -403,10 +527,17 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
               <textarea
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-blue-500 ${
+                  duplicateQuestionCheck ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'
+                }`}
                 rows={4}
                 required
               />
+              {duplicateQuestionCheck && (
+                <p className="mt-1 text-sm text-red-600">
+                  ⚠️ 既に同じ問題が存在します。問題文が重複しています。
+                </p>
+              )}
             </div>
 
             {/* 問題画像 */}
@@ -648,26 +779,37 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
               />
             </div>
 
-            {/* 解説画像 */}
+            {/* 解説画像（複数可） */}
             <div>
               <label className="block text-base font-medium text-gray-900 mb-2">
-                解説画像（任意）
+                解説画像（任意・複数登録可）
               </label>
               <input
                 type="file"
                 accept="image/*"
-                onChange={handleExplanationImageChange}
-                className="w-full"
+                onChange={handleExplanationImageAdd}
+                className="w-full mb-2"
               />
-              {explanationImagePreview && (
-                <div className="mt-2">
-                  <Image
-                    src={explanationImagePreview}
-                    alt="解説画像プレビュー"
-                    width={200}
-                    height={200}
-                    className="rounded-md"
-                  />
+              {explanationImages.length > 0 && (
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {explanationImages.map((item, index) => (
+                    <div key={index} className="relative">
+                      <Image
+                        src={item.preview}
+                        alt={`解説画像 ${index + 1}`}
+                        width={200}
+                        height={200}
+                        className="rounded-md object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleExplanationImageRemove(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -675,15 +817,15 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
             {/* 年度 */}
             <div>
               <label className="block text-base font-medium text-gray-900 mb-2">
-                年度
+                年度{isMockExam && '（任意）'}
               </label>
               <select
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
+                required={!isMockExam}
               >
-                <option value="">選択してください</option>
+                <option value="">{isMockExam ? '未選択可' : '選択してください'}</option>
                 {getAvailableYears().map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -693,7 +835,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
             {/* メインカテゴリー */}
             <div>
               <label className="block text-base font-medium text-gray-900 mb-2">
-                メインカテゴリー
+                メインカテゴリー{isMockExam && '（任意）'}
               </label>
               <select
                 value={mainCategory}
@@ -702,9 +844,9 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
                   setSubCategory('');
                 }}
                 className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
+                required={!isMockExam}
               >
-                <option value="">選択してください</option>
+                <option value="">{isMockExam ? '未選択可' : '選択してください'}</option>
                 {Object.keys(categories).map(category => (
                   <option key={category} value={category}>{category}</option>
                 ))}
@@ -721,7 +863,7 @@ export default function CreateQuestionModal({ certificationId, category, isOpen,
                   value={subCategory}
                   onChange={(e) => setSubCategory(e.target.value)}
                   className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
+                  required={!!mainCategory}
                 >
                   <option value="">選択してください</option>
                   {categories[mainCategory]?.map(subCat => (

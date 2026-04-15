@@ -32,10 +32,17 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
   const fetchCertification = async () => {
     try {
       const data = await getCertification(certificationId);
+      if (!data) {
+        setCertification(null);
+        setQuestions([]);
+        setFilteredQuestions([]);
+        return;
+      }
       setCertification(data);
       await fetchQuestions();
     } catch (error) {
       console.error('Error fetching certification:', error);
+      setCertification(null);
     }
   };
 
@@ -114,6 +121,25 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
     );
   }
 
+  if (!certification) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            onClick={() => router.push('/admin/certifications')}
+            variant="outline"
+          >
+            ← 戻る
+          </Button>
+        </div>
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <p className="text-red-600 font-medium">資格が見つかりません</p>
+          <p className="text-gray-500 mt-2">指定された資格IDが無効か、削除されている可能性があります。</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
@@ -124,7 +150,10 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
           >
             ← 戻る
           </Button>
-          <h1 className="text-2xl font-bold">問題管理</h1>
+          <div>
+            <h1 className="text-2xl font-bold">問題管理</h1>
+            <p className="text-sm text-gray-600 mt-1">資格: {certification.name}</p>
+          </div>
         </div>
         <Button onClick={() => setIsCreateModalOpen(true)}>
           新規問題作成
@@ -277,30 +306,24 @@ export default function QuestionsPage({ params }: { params: { id: string } }) {
       <CreateQuestionModal
         certificationId={certificationId}
         category={certification?.category || ''}
+        certification={certification ?? undefined}
+        existingQuestions={questions}
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
+          fetchQuestions();
           if (certification) {
-            // 問題作成後も問題一覧は表示せず、検索条件をリセット
             setSearchQuery('');
             setSelectedYear('');
             setSelectedCategory('');
             setFilteredQuestions([]);
-            // 年度とカテゴリーの選択肢は更新
-            const yearSet = new Set<string>();
-            const categorySet = new Set<string>();
-            (certification.questions || []).forEach(q => {
-              if (q.year) yearSet.add(q.year);
-              if (q.category) categorySet.add(q.category);
-            });
-            setYears(yearSet);
-            setCategories(categorySet);
           }
         }}
       />
 
       {selectedQuestion && (
         <EditQuestionModal
+          existingQuestions={questions}
           question={{
             ...selectedQuestion,
             options: selectedQuestion.options.map(opt => ({

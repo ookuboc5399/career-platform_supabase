@@ -6,7 +6,19 @@ export async function GET() {
     const { data: languages, error } = await supabaseAdmin
       .from('programming_languages')
       .select('*')
-      .in('type', ['language', 'framework', 'ai-platform', 'data-warehouse', 'others', 'saas', 'cloud', 'network'])
+      .in('type', [
+        'language',
+        'framework',
+        'ai-platform',
+        'data-warehouse',
+        'others',
+        'saas',
+        'cloud',
+        'network',
+        'iaas',
+        'ai',
+        'ui-ux',
+      ])
       .order('created_at', { ascending: true });
 
     if (error) {

@@ -9,7 +9,18 @@ interface Course {
   level: string;
   chapters: number;
   exercises: number;
-  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'iaas' | 'network';
+  type:
+    | 'language'
+    | 'framework'
+    | 'ai-platform'
+    | 'data-warehouse'
+    | 'others'
+    | 'saas'
+    | 'cloud'
+    | 'iaas'
+    | 'network'
+    | 'ai'
+    | 'ui-ux';
   /** 外部リンクの場合、このURLへ遷移（新規タブで開く） */
   externalUrl?: string;
   /** 外部リンク時のボタン文言（未指定時は「学習サイトへ」） */
@@ -185,18 +196,34 @@ const courses: Course[] = [
   {
     id: 'azure',
     title: 'Azure入門',
-    description: 'Microsoftが提供するクラウドプラットフォーム、Azureの基礎から学びます。',
+    description: 'Microsoftが提供するクラウドプラットフォーム、Azureの基礎から学びます。Entra ID と GitHub の SCIM プロビジョニングも含みます。',
     icon: '🔷',
     features: [
-      '仮想マシンとストレージ',
-      'Azureの主要サービス',
-      'ハイブリッドクラウド構成',
+      'Azureの概要と主要サービス',
+      'Microsoft Entra ID（旧 Azure AD）',
+      'SCIM による GitHub プロビジョニング',
     ],
     level: '初級',
-    chapters: 0,
+    chapters: 3,
     exercises: 0,
     type: 'cloud',
-    externalUrl: 'https://learn.microsoft.com/ja-jp/training/',
+  },
+  {
+    id: 'cloud-dx',
+    title: 'クラウド×DXとCCoE',
+    description:
+      'デジタルトランスフォーメーションにおけるクラウド活用と Cloud Center of Excellence（CCoE）の役割、ガバナンス・ランディングゾーン、プラットフォームチームとセルフサービス、普及と成熟度を学びます。',
+    icon: '📐',
+    features: [
+      'DXとクラウドの関係',
+      'CCoEの役割と組織モデル',
+      'ガバナンスとランディングゾーン',
+      'プラットフォームチームとセルフサービス',
+    ],
+    level: '中級',
+    chapters: 5,
+    exercises: 0,
+    type: 'cloud',
   },
   {
     id: 'gcp',
@@ -260,6 +287,24 @@ const courses: Course[] = [
     type: 'iaas',
   },
   {
+    id: 'docker',
+    title: 'Docker入門',
+    description:
+      'コンテナの基礎、イメージとレジストリ、Dockerfile・docker build/run、Compose・ネットワーク・ボリューム、CI/CD とセキュリティの考え方を学びます。',
+    icon: '🐳',
+    features: [
+      'コンテナと仮想化の違い',
+      'イメージのライフサイクルとレジストリ',
+      'Dockerfile と Compose',
+      'ボリューム・ネットワーク',
+      'CI/CD とマルチステージビルド',
+    ],
+    level: '初級',
+    chapters: 5,
+    exercises: 0,
+    type: 'iaas',
+  },
+  {
     id: 'snowflake',
     title: 'Snowflake入門',
     description: 'クラウドベースのデータウェアハウスプラットフォーム、Snowflakeの基礎から学びます。',
@@ -268,6 +313,28 @@ const courses: Course[] = [
     level: '初級',
     chapters: 7,
     exercises: 15,
+    type: 'data-warehouse',
+  },
+  {
+    id: 'windows-server',
+    title: 'Windows Server',
+    description: 'Windows Serverのハイブリッド環境における高度なサービスについて学びます。',
+    icon: '🪟',
+    features: ['ハイブリッド環境の構成', 'セキュリティと管理', 'クラウド連携'],
+    level: '中級',
+    chapters: 1,
+    exercises: 0,
+    type: 'data-warehouse',
+  },
+  {
+    id: 'supabase',
+    title: 'Supabase',
+    description: 'オープンソースのFirebase代替、Supabaseでバックエンド開発を学びます。',
+    icon: '⚡',
+    features: ['PostgreSQLデータベース', '認証・ストレージ', 'Realtime'],
+    level: '初級',
+    chapters: 0,
+    exercises: 0,
     type: 'data-warehouse',
   },
   {
@@ -292,7 +359,7 @@ const courses: Course[] = [
       'プルリクエストとコードレビュー',
     ],
     level: '初級',
-    chapters: 6,
+    chapters: 7,
     exercises: 15,
     type: 'others',
   },
@@ -314,17 +381,118 @@ const courses: Course[] = [
   {
     id: 'jira',
     title: 'Jira入門',
-    description: 'プロジェクト管理と課題追跡のための強力なツール、Jiraの使い方を基礎から実践的に学びます。',
+    description: 'Atlassian Jira の課題・ボード・ワークフロー・スプリント・JQL・サービス管理の基礎を日本語で学びます。',
     icon: '🎯',
     features: [
-      'プロジェクトとボードの作成',
-      '課題（Issue）の管理とワークフロー',
-      'アジャイル開発の実践',
+      '課題タイプとスクラム／カンバンボード',
+      'ワークフローと JQL 入門',
+      'Jira Service Management の概要',
     ],
     level: '初級',
     chapters: 6,
-    exercises: 15,
+    exercises: 0,
     type: 'saas',
+  },
+  {
+    id: 'atlassian',
+    title: 'Atlassian 入門',
+    description:
+      'Jira・Confluence・Rovo を含む Atlassian クラウドの全体像と、サイト・ユーザー・権限・AI 機能の基礎を学びます。',
+    icon: '🔷',
+    features: ['製品エコシステムの理解', 'Cloud サイトと Organization', 'Rovo（検索・チャット・エージェント）の概要'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'saas',
+  },
+  {
+    id: 'confluence',
+    title: 'Confluence 入門',
+    description: 'チーム向けドキュメントツール Confluence の概要、スペース設計、マクロとテンプレートによるナレッジ共有を学びます。',
+    icon: '📘',
+    features: ['スペースとページの階層', 'Jira との連携', 'マクロ・テンプレート運用'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'saas',
+  },
+  {
+    id: 'claude',
+    title: 'Claude',
+    description:
+      'Claude の概要、Messages API、安全とプロンプト設計、API 実践ワークショップ（ストリーミング・Vision 等）、および MCP によるツール連携をこのコース内のチャプターで学びます。',
+    icon: '🧡',
+    features: [
+      'Claude のモデルファミリーと用途',
+      'Messages API の考え方',
+      '安全・プロンプト設計',
+      'API 実践（ストリーミング・Vision）',
+      'MCP によるツール連携',
+    ],
+    level: '初級',
+    chapters: 5,
+    exercises: 0,
+    type: 'ai',
+  },
+  {
+    id: 'openai',
+    title: 'OpenAI',
+    description:
+      'ChatGPT と API の違い、モデル・トークン、運用とコストをチャプター形式で整理して学びます。',
+    icon: '🤖',
+    features: ['ChatGPT と API の違い', 'モデルとトークン', '運用とコスト'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'ai',
+  },
+  {
+    id: 'openclaw',
+    title: 'OpenClaw',
+    description:
+      '自己ホスト型パーソナル AI アシスタントの概要、セットアップとセキュリティ、連携時の注意をチャプターで学びます。',
+    icon: '🦞',
+    features: ['概要と責任分界', 'セットアップとセキュリティ', '外部連携のリスク管理'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'ai',
+  },
+  {
+    id: 'manus',
+    title: 'Manus',
+    description:
+      'エージェント型タスク実行の考え方、ワークフロー設計、社内ガバナンスをチャプターで学びます。',
+    icon: '✋',
+    features: ['エージェントタスクのイメージ', 'ワークフロー設計', 'ガバナンス'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'ai',
+  },
+  {
+    id: 'ui-ux-foundations',
+    title: 'UI/UX 入門',
+    description:
+      'UI と UX の違い、ユーザビリティリサーチ、アクセシビリティの基礎をチャプターで学びます。',
+    icon: '🎨',
+    features: ['UI と UX', 'ユーザビリティとリサーチ', 'アクセシビリティ'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'ui-ux',
+  },
+  {
+    id: 'ui-design-systems',
+    title: 'デザインシステムと UI パターン',
+    description:
+      'デザインシステムの役割、トークンとコンポーネント、公開 UI パターンの活用法をチャプターで学びます。',
+    icon: '📐',
+    features: ['デザインシステムとは', 'トークンとコンポーネント', 'パターンと Material Design'],
+    level: '初級',
+    chapters: 3,
+    exercises: 0,
+    type: 'ui-ux',
   },
 ];
 
@@ -340,44 +508,46 @@ const CourseCard = ({ course }: { course: Course }) => {
   <Wrapper
     {...linkProps}
     key={course.id}
-    className="block"
+    className="block h-full"
   >
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <span className="text-4xl mr-4">{course.icon}</span>
-            <div>
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow h-full flex flex-col">
+      <div className="p-8 flex flex-col flex-1 min-h-0">
+        <div className="flex items-center justify-between mb-4 shrink-0">
+          <div className="flex items-center min-w-0">
+            <span className="text-4xl mr-4 shrink-0">{course.icon}</span>
+            <div className="min-w-0">
               <h2 className="text-2xl font-bold text-gray-900">{course.title}</h2>
               <p className="text-sm text-gray-500">
                 {course.level} • {course.chapters}チャプター • {course.exercises}個の演習
               </p>
             </div>
           </div>
-          <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+          <div className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full shrink-0">
             無料
           </div>
         </div>
 
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-6 line-clamp-4 shrink-0">
           {course.description}
         </p>
 
-        <div className="space-y-2">
+        <div className="space-y-2 shrink-0">
           <h3 className="text-sm font-semibold text-gray-900">学習内容:</h3>
           <ul className="space-y-1">
             {course.features.map((feature, index) => (
-              <li key={index} className="flex items-center text-gray-600">
-                <svg className="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <li key={index} className="flex items-start text-gray-600">
+                <svg className="w-4 h-4 text-green-500 mr-2 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                {feature}
+                <span className="line-clamp-2">{feature}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="mt-8">
+        <div className="flex-1 min-h-0" aria-hidden />
+
+        <div className="mt-auto pt-8 shrink-0">
           <div className="inline-flex items-center text-blue-600 font-semibold hover:text-blue-700">
             {course.externalUrl ? (course.externalLabel ?? '学習サイトへ') : 'コースを始める'}
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +561,7 @@ const CourseCard = ({ course }: { course: Course }) => {
         </div>
       </div>
 
-      <div className="bg-gray-50 px-8 py-4">
+      <div className="bg-gray-50 px-8 py-4 shrink-0">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center text-gray-500">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -523,6 +693,28 @@ export default function ProgrammingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {courses
               .filter(course => course.type === 'network')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">AI</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter((course) => course.type === 'ai')
+              .map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-6">UI/UX</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {courses
+              .filter((course) => course.type === 'ui-ux')
               .map((course) => (
                 <CourseCard key={course.id} course={course} />
               ))}

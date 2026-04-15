@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { languageId, title, description, videoUrl, duration, exercises, status } = body;
+    const { languageId, title, description, videoUrl, duration, exercises, status, parentId, order: bodyOrder } = body;
 
     if (!languageId || !title || !description) {
       return NextResponse.json(
@@ -38,19 +38,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 既存のチャプターを取得して新しい順序を決定
-    const existingChapters = await getProgrammingChapters(languageId);
-    const order = existingChapters.length + 1;
-
-    // サムネイルの生成（動画の最初のフレーム）は別途実装が必要
-    const thumbnailUrl = '';
+    // 順序: 指定があればそれを使い、なければ末尾
+    let order = bodyOrder;
+    if (order === undefined) {
+      const existingChapters = await getProgrammingChapters(languageId);
+      order = existingChapters.length + 1;
+    }
 
     const chapter = await createProgrammingChapter({
       languageId,
+      parentId: parentId || null,
       title,
       description,
       videoUrl,
-      thumbnailUrl,
+      thumbnailUrl: '',
       duration,
       order,
       status: status || 'draft',

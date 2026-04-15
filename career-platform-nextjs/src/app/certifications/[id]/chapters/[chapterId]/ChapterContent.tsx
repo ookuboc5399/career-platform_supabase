@@ -53,9 +53,9 @@ export default function ChapterContent({ chapter, onComplete }: ChapterContentPr
   return (
     <div className="space-y-8">
       {/* ビデオセクション */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">レッスン動画</h2>
-        <div className="aspect-video bg-black rounded-lg overflow-hidden">
+      <div className="flex flex-col items-center">
+        <h2 className="mb-4 text-xl font-semibold">レッスン動画</h2>
+        <div className="aspect-video w-full max-w-4xl overflow-hidden rounded-lg bg-black">
           <VideoPlayer
             url={chapter.videoUrl}
             onComplete={handleVideoComplete}

@@ -126,7 +126,18 @@ export interface CreateCertificationDto {
 export interface ProgrammingLanguage extends BaseEntity {
   title: string;
   description?: string;
-  type: 'language' | 'framework' | 'ai-platform' | 'data-warehouse' | 'others' | 'saas' | 'cloud' | 'network';
+  type:
+    | 'language'
+    | 'framework'
+    | 'ai-platform'
+    | 'data-warehouse'
+    | 'others'
+    | 'saas'
+    | 'cloud'
+    | 'network'
+    | 'iaas'
+    | 'ai'
+    | 'ui-ux';
 }
 
 export interface Exercise {
@@ -147,6 +158,7 @@ export interface Exercise {
 
 export interface ProgrammingChapter extends BaseEntity {
   languageId: string;
+  parentId?: string | null;
   title: string;
   description: string;
   videoUrl: string;
@@ -155,6 +167,9 @@ export interface ProgrammingChapter extends BaseEntity {
   order: number;
   status: 'draft' | 'published';
   exercises: Exercise[];
+  slideUrl?: string;
+  pdfUrl?: string;
+  subChapters?: ProgrammingChapter[];
 }
 
 // 試験対策用の問題（チャプター学習用の問題とは別）

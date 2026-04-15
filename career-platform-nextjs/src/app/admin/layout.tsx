@@ -113,6 +113,12 @@ export default function AdminLayout({
               システム管理
             </div>
             <Link
+              href="/admin/knowledge"
+              className="block px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
+            >
+              学習ナレッジ
+            </Link>
+            <Link
               href="/admin/settings"
               className="block px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
             >

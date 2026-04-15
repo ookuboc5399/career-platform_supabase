@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import {
+  isStorageUploadFileNameAllowed,
+  STORAGE_UPLOAD_FILENAME_HINT,
+} from '@/lib/storage-upload-filename';
 import { Button } from "@/components/ui/button";
 
 interface ImageUploaderProps {
@@ -21,6 +25,12 @@ export default function ImageUploader({ onUploadComplete, type, disabled = false
     // 画像ファイルの種類をチェック
     if (!file.type.startsWith('image/')) {
       setError('画像ファイルを選択してください');
+      return;
+    }
+
+    if (!isStorageUploadFileNameAllowed(file.name)) {
+      setError(STORAGE_UPLOAD_FILENAME_HINT);
+      event.target.value = '';
       return;
     }
 
